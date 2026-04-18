@@ -9,6 +9,7 @@ import dashboardRouter from './routes/dashboard.js'
 import clientsRouter from './routes/clients.js'
 import financeRouter from './routes/finance.js'
 import settingsRouter from './routes/settings.js'
+import appointmentsRouter from './routes/appointments.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -25,6 +26,7 @@ app.use('/api/dashboard', dashboardRouter)
 app.use('/api/clients', clientsRouter)
 app.use('/api/finance', financeRouter)
 app.use('/api/settings', settingsRouter)
+app.use('/api/appointments', appointmentsRouter)
 
 // ── Servir arquivos enviados (logos, áudios) ──────────────────────────────────
 const uploadsDir = join(__dirname, '../../uploads')
