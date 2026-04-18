@@ -9,6 +9,9 @@ import LandingPage from './pages/LandingPage'
 // Páginas protegidas (implementadas nos próximos passos)
 import Dashboard from './pages/Dashboard'
 
+// Página pública do agendador
+import Scheduler from './pages/Scheduler'
+
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || ''
 
 export default function App() {
@@ -19,6 +22,9 @@ export default function App() {
           <Routes>
             {/* Pública */}
             <Route path="/" element={<LandingPage />} />
+
+            {/* Agendador público */}
+            <Route path="/agendar/:slug" element={<Scheduler />} />
 
             {/* Protegidas */}
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
