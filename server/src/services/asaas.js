@@ -22,6 +22,10 @@ export async function findOrCreateCustomer(apiKey, { name, email, phone }) {
   return req(apiKey, 'POST', '/customers', { name, email, mobilePhone: phone })
 }
 
+export async function getBalance(apiKey) {
+  return req(apiKey, 'GET', '/finance/balance')
+}
+
 export async function createPaymentLink(apiKey, { customerId, amount, description, dueDate }) {
   return req(apiKey, 'POST', '/payments', {
     customer: customerId,
