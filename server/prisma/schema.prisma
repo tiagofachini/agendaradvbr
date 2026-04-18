@@ -1,0 +1,170 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Advogado (usuário SaaS) ─────────────────────────────────────────────────
+
+model Lawyer {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  whatsapp  String?
+  googleId  String?  @unique
+  avatarUrl String?
+
+  // Controle freemium: grátis enquanto faz cobranças pelo app
+  lastChargeMadeAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  settings     LawyerSettings?
+  clients      Client[]
+  appointments Appointment[]
+  payments     Payment[]
+}
+
+model LawyerSettings {
+  id       String @id @default(cuid())
+  lawyerId String @unique
+  lawyer   Lawyer @relation(fields: [lawyerId], references: [id], onDelete: Cascade)
+
+  // Configurações da conta já ficam no Lawyer (name, email, whatsapp)
+
+  // Escritório
+  cep          String?
+  street       String?
+  number       String?
+  complement   String?
+  neighborhood String?
+  city         String?
+  state        String?
+  logoUrl      String?
+  specialties  String[] // áreas do direito selecionadas
+
+  // Agendador
+  schedulerSlug    String?  @unique // URL personalizada: agendaradv.br/slug
+  slotDuration     Int      @default(60) // 30, 60 ou 120 minutos
+  highlightMessage String?
+
+  // Agenda
+  useGoogleCalendar  Boolean @default(false)
+  googleRefreshToken String?
+  workDays           Int[] // 0=Dom … 6=Sáb
+  workStartTime      String  @default("09:00")
+  workEndTime        String  @default("18:00")
+  hourlyRate         Decimal? @db.Decimal(10, 2)
+
+  // Financeiro (Asaas)
+  asaasApiKey   String?
+  asaasWalletId String?
+
+  // Alertas
+  newBookingByEmail      Boolean @default(true)
+  newBookingByWhatsapp   Boolean @default(false)
+  cancellationByEmail    Boolean @default(true)
+  cancellationByWhatsapp Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─── Cliente do escritório ────────────────────────────────────────────────────
+
+model Client {
+  id       String @id @default(cuid())
+  lawyerId String
+  lawyer   Lawyer @relation(fields: [lawyerId], references: [id], onDelete: Cascade)
+
+  name     String
+  email    String
+  whatsapp String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  appointments Appointment[]
+  payments     Payment[]
+
+  @@unique([lawyerId, email])
+  @@index([lawyerId])
+}
+
+// ─── Compromisso / Agendamento ────────────────────────────────────────────────
+
+model Appointment {
+  id       String  @id @default(cuid())
+  lawyerId String
+  lawyer   Lawyer  @relation(fields: [lawyerId], references: [id], onDelete: Cascade)
+  clientId String?
+  client   Client? @relation(fields: [clientId], references: [id])
+
+  // Dados desnormalizados para agendamentos antes de virar cliente cadastrado
+  clientName     String
+  clientEmail    String
+  clientWhatsapp String?
+
+  specialty   String // área do direito
+  description String? // descrição do problema
+  audioUrl    String? // transcrição de áudio
+
+  date     DateTime
+  duration Int              @default(60) // minutos
+  status   AppointmentStatus @default(PENDING_PAYMENT)
+
+  googleCalendarEventId String?
+  payment               Payment?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([lawyerId, date])
+  @@index([lawyerId, status])
+}
+
+enum AppointmentStatus {
+  PENDING_PAYMENT  // aguardando pagamento (expira em 24h)
+  CONFIRMED        // pago e confirmado
+  CANCELLED        // cancelado
+  COMPLETED        // realizado
+  EXPIRED          // não pago em 24h
+}
+
+// ─── Pagamento (integração Asaas) ─────────────────────────────────────────────
+
+model Payment {
+  id            String  @id @default(cuid())
+  lawyerId      String
+  lawyer        Lawyer  @relation(fields: [lawyerId], references: [id], onDelete: Cascade)
+  clientId      String?
+  client        Client? @relation(fields: [clientId], references: [id])
+  appointmentId String? @unique
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id])
+
+  amount  Decimal       @db.Decimal(10, 2)
+  status  PaymentStatus @default(PENDING)
+
+  asaasId  String?  @unique // ID da cobrança no Asaas
+  asaasUrl String? // link de pagamento
+  dueDate  DateTime?
+  paidAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([lawyerId])
+  @@index([lawyerId, status])
+}
+
+enum PaymentStatus {
+  PENDING   // a receber
+  PAID      // recebido
+  OVERDUE   // vencido
+  CANCELLED // cancelado
+  REFUNDED  // estornado
+}
