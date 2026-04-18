@@ -6,6 +6,7 @@ import { existsSync } from 'fs'
 import authRouter from './routes/auth.js'
 import schedulerRouter from './routes/scheduler.js'
 import dashboardRouter from './routes/dashboard.js'
+import clientsRouter from './routes/clients.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -19,6 +20,7 @@ app.use(express.json())
 app.use('/api/auth', authRouter)
 app.use('/api/scheduler', schedulerRouter)
 app.use('/api/dashboard', dashboardRouter)
+app.use('/api/clients', clientsRouter)
 
 app.get('/api/hello', (_req, res) => {
   res.json({ message: 'Hello from API' })
