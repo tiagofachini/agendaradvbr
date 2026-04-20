@@ -52,7 +52,7 @@ echo "   ln -s /etc/nginx/sites-available/agendaradvbr /etc/nginx/sites-enabled/
 echo "   nginx -t && systemctl reload nginx"
 echo ""
 echo "4. Gere SSL:"
-echo "   certbot --nginx -d agendaradv.br -d www.agendaradv.br"
+echo "   certbot --nginx -d agendar.adv.br -d www.agendar.adv.br"
 echo ""
 echo "5. Inicie a aplicação com PM2:"
 echo "   pm2 start ecosystem.config.cjs --env production"

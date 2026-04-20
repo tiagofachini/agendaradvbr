@@ -50,7 +50,7 @@ model LawyerSettings {
   specialties  String[] // áreas do direito selecionadas
 
   // Agendador
-  schedulerSlug    String?  @unique // URL personalizada: agendaradv.br/slug
+  schedulerSlug    String?  @unique // URL personalizada: agendar.adv.br/agendar/slug
   slotDuration     Int      @default(60) // 30, 60 ou 120 minutos
   highlightMessage String?
 

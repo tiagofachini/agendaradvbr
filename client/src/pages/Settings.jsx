@@ -167,7 +167,7 @@ function SchedulerSection({ data }) {
     <Section title="Configurações do agendador" desc="Configure seu link público de agendamento." onSubmit={save} loading={loading} saved={saved}>
       <Field label="URL personalizada">
         <div className="flex items-center border border-gray-300 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-navy-700">
-          <span className="px-3 text-gray-400 text-sm bg-gray-50 border-r border-gray-300 py-2.5 whitespace-nowrap">agendaradv.br/</span>
+          <span className="px-3 text-gray-400 text-sm bg-gray-50 border-r border-gray-300 py-2.5 whitespace-nowrap">agendar.adv.br/agendar/</span>
           <input className="flex-1 px-3 py-2.5 text-sm focus:outline-none" value={form.schedulerSlug}
             onChange={e => setForm({ ...form, schedulerSlug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })} placeholder="seu-nome" />
         </div>
