@@ -93,7 +93,7 @@ export default function LandingPage() {
       <nav className="fixed top-0 left-0 right-0 z-40 bg-navy-900 shadow-md">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img src="/logo.png" alt="AgendarAdv" className="h-9 w-9 object-contain" />
+            <img src="/logo.svg" alt="AgendarAdv" className="h-9 w-9 object-contain" />
             <span className="text-white font-bold text-xl tracking-tight">
               Agendar<span className="text-brand-500">Adv</span>
             </span>
@@ -241,7 +241,7 @@ export default function LandingPage() {
             <div className="bg-navy-900 px-8 py-6">
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-2">
-                  <img src="/logo.png" alt="" className="h-8 w-8 object-contain" />
+                  <img src="/logo.svg" alt="" className="h-8 w-8 object-contain" />
                   <span className="text-white font-bold text-xl">
                     Agendar<span className="text-brand-400">Adv</span>
                   </span>

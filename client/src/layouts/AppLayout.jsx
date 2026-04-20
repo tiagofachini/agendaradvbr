@@ -20,7 +20,7 @@ export default function AppLayout() {
   const Sidebar = () => (
     <aside className="flex flex-col h-full bg-navy-900 w-64">
       <div className="px-6 py-5 border-b border-white/10 flex items-center gap-3">
-        <img src="/logo.png" alt="AgendarAdv" className="h-8 w-8 object-contain flex-shrink-0" />
+        <img src="/logo.svg" alt="AgendarAdv" className="h-8 w-8 object-contain flex-shrink-0" />
         <span className="text-white font-bold text-xl tracking-tight">
           Agendar<span className="text-brand-500">Adv</span>
         </span>
@@ -89,7 +89,7 @@ export default function AppLayout() {
         {/* Topbar mobile */}
         <header className="md:hidden flex items-center gap-3 bg-navy-900 px-4 py-3.5">
           <button onClick={() => setSidebarOpen(true)} className="text-white text-xl">☰</button>
-          <img src="/logo.png" alt="" className="h-7 w-7 object-contain" />
+          <img src="/logo.svg" alt="" className="h-7 w-7 object-contain" />
           <span className="text-white font-bold">Agendar<span className="text-brand-500">Adv</span></span>
         </header>
 
