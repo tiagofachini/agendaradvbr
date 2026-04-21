@@ -66,18 +66,37 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT || '22' }}
           script: |
+            # Carrega nvm/node caso instalado via nvm (Hostinger)
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && source "$NVM_DIR/nvm.sh"
+            [ -s "$NVM_DIR/bash_completion" ] && source "$NVM_DIR/bash_completion"
+
+            # Fallback: tenta paths comuns do node no Hostinger
+            export PATH="$HOME/.nvm/versions/node/$(ls $HOME/.nvm/versions/node/ 2>/dev/null | tail -1)/bin:$PATH"
+            export PATH="/usr/local/bin:/usr/bin:$PATH"
+
+            echo "==> Node: $(node -v 2>&1) | npm: $(npm -v 2>&1)"
+
             set -e
             cd ${{ secrets.APP_PATH }}
+
             echo "==> git pull"
             git pull origin main
+
             echo "==> npm install"
             npm install
             npm install --prefix client
             npm install --prefix server
+
             echo "==> build frontend"
             npm --prefix client run build
+
             echo "==> prisma"
-            cd server && npx prisma generate && npx prisma migrate deploy && cd ..
+            cd server
+            npx prisma generate
+            npx prisma migrate deploy
+            cd ..
+
             echo "==> restart"
             touch tmp/restart.txt 2>/dev/null || true
-            echo "Deploy concluído!"
+            echo "==> Deploy concluído!"
