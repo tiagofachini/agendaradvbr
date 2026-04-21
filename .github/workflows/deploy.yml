@@ -20,7 +20,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
 
       - name: Install root dependencies
         run: npm install
@@ -32,10 +31,13 @@ jobs:
         run: npm install --prefix server
 
       - name: Build frontend
-        run: npm run build --prefix client
+        run: npm --prefix client run build
 
       - name: Generate Prisma client
         run: cd server && npx prisma generate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL || 'postgresql://placeholder:placeholder@localhost/placeholder' }}
+          DIRECT_URL: ${{ secrets.DATABASE_URL || 'postgresql://placeholder:placeholder@localhost/placeholder' }}
 
   deploy:
     name: Deploy via SSH
@@ -62,13 +64,20 @@ jobs:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: ${{ secrets.SSH_PORT || 22 }}
+          port: ${{ secrets.SSH_PORT || '22' }}
           script: |
+            set -e
             cd ${{ secrets.APP_PATH }}
+            echo "==> git pull"
             git pull origin main
+            echo "==> npm install"
             npm install
             npm install --prefix client
             npm install --prefix server
-            npm run build --prefix client
+            echo "==> build frontend"
+            npm --prefix client run build
+            echo "==> prisma"
             cd server && npx prisma generate && npx prisma migrate deploy && cd ..
+            echo "==> restart"
             touch tmp/restart.txt 2>/dev/null || true
+            echo "Deploy concluído!"
