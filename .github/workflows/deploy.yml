@@ -66,28 +66,13 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT || '22' }}
           script: |
-            # Carrega nvm/node caso instalado via nvm (Hostinger)
             export NVM_DIR="$HOME/.nvm"
-            [ -s "$NVM_DIR/nvm.sh" ] && source "$NVM_DIR/nvm.sh"
-            export PATH="$HOME/.nvm/versions/node/$(ls $HOME/.nvm/versions/node/ 2>/dev/null | tail -1)/bin:/usr/local/bin:/usr/bin:$PATH"
-
-            run() { echo ">>> $*"; "$@"; echo "<<< exit $?"; }
-
-            run echo "whoami: $(whoami)"
-            run echo "home:   $HOME"
-            run echo "node:   $(node -v 2>&1)"
-            run echo "npm:    $(npm -v 2>&1)"
-            run echo "path:   ${{ secrets.APP_PATH }}"
-            run ls ${{ secrets.APP_PATH }} || echo "ERRO: diretório não encontrado"
-
-            cd ${{ secrets.APP_PATH }} || { echo "ERRO FATAL: cd falhou"; exit 1; }
-
-            run git remote -v
-            run git pull origin main
-            run npm install
-            run npm install --prefix client
-            run npm install --prefix server
-            run npm --prefix client run build
-            cd server && run npx prisma generate && run npx prisma migrate deploy && cd ..
+            . "$NVM_DIR/nvm.sh"
+            cd ${{ secrets.APP_PATH }}
+            git pull origin main
+            npm install
+            npm install --prefix client
+            npm install --prefix server
+            npm --prefix client run build
+            cd server && npx prisma generate && npx prisma migrate deploy && cd ..
             touch tmp/restart.txt 2>/dev/null || true
-            echo "==> Deploy concluído!"
