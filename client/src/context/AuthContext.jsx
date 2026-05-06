@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react'
-import api from '../lib/api'
+import { supabase } from '../lib/supabase'
 
 const AuthContext = createContext(null)
 
@@ -7,28 +7,34 @@ export function AuthProvider({ children }) {
   const [lawyer, setLawyer] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    const token = localStorage.getItem('token')
-    if (!token) { setLoading(false); return }
+  const loadProfile = async (userId) => {
+    const { data } = await supabase
+      .from('Lawyer')
+      .select('*, settings:LawyerSettings(*)')
+      .eq('auth_id', userId)
+      .single()
+    setLawyer(data)
+  }
 
-    api.get('/auth/me')
-      .then((res) => setLawyer(res.data))
-      .catch(() => localStorage.removeItem('token'))
-      .finally(() => setLoading(false))
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) loadProfile(session.user.id).finally(() => setLoading(false))
+      else setLoading(false)
+    })
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session) await loadProfile(session.user.id)
+      else setLawyer(null)
+      setLoading(false)
+    })
+
+    return () => subscription.unsubscribe()
   }, [])
 
-  const login = (token, lawyerData) => {
-    localStorage.setItem('token', token)
-    setLawyer(lawyerData)
-  }
-
-  const logout = () => {
-    localStorage.removeItem('token')
-    setLawyer(null)
-  }
+  const logout = () => supabase.auth.signOut()
 
   return (
-    <AuthContext.Provider value={{ lawyer, loading, login, logout }}>
+    <AuthContext.Provider value={{ lawyer, loading, logout, setLawyer }}>
       {children}
     </AuthContext.Provider>
   )
