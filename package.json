@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "build": "npm install --prefix client && npm install --prefix server && npm run build --prefix client && cd server && npx prisma generate",
+    "build": "npm install --prefix client && npm --prefix client run build",
     "start": "node server/src/index.js",
     "dev": "concurrently \"npm run dev --prefix client\" \"npm run dev --prefix server\""
   },
