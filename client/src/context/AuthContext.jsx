@@ -8,11 +8,22 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
 
   const loadProfile = async (userId) => {
-    const { data } = await supabase
+    let { data } = await supabase
       .from('Lawyer')
       .select('*, settings:LawyerSettings(*)')
       .eq('auth_id', userId)
-      .single()
+      .maybeSingle()
+
+    // Trigger may still be committing — retry once after 2s
+    if (!data) {
+      await new Promise((r) => setTimeout(r, 2000))
+      ;({ data } = await supabase
+        .from('Lawyer')
+        .select('*, settings:LawyerSettings(*)')
+        .eq('auth_id', userId)
+        .maybeSingle())
+    }
+
     setLawyer(data)
   }
 
