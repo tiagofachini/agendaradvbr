@@ -1,54 +1,59 @@
-import { createContext, useContext, useEffect, useRef, useState } from 'react'
+import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
 const AuthContext = createContext(null)
 
+async function fetchLawyer(session) {
+  if (!session) return null
+  const { data: lawyerData } = await supabase
+    .from('Lawyer')
+    .select('*')
+    .eq('auth_id', session.user.id)
+    .maybeSingle()
+  if (!lawyerData) return null
+  const { data: settings } = await supabase
+    .from('LawyerSettings')
+    .select('*')
+    .eq('lawyerId', lawyerData.id)
+    .maybeSingle()
+  return { ...lawyerData, settings }
+}
+
 export function AuthProvider({ children }) {
   const [lawyer, setLawyer] = useState(null)
   const [loading, setLoading] = useState(true)
-  const loadingRef = useRef(true)
 
   useEffect(() => {
-    // Fallback: garante que loading sai de true mesmo se o Supabase não responder
-    const timeout = setTimeout(() => {
-      if (loadingRef.current) setLoading(false)
-    }, 8000)
+    let cancelled = false
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    // Leitura imediata do localStorage — não depende de evento
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (cancelled) return
       try {
-        if (!session) {
-          setLawyer(null)
-          return
-        }
-
-        const { data: lawyerData } = await supabase
-          .from('Lawyer')
-          .select('*')
-          .eq('auth_id', session.user.id)
-          .maybeSingle()
-
-        if (lawyerData) {
-          const { data: settings } = await supabase
-            .from('LawyerSettings')
-            .select('*')
-            .eq('lawyerId', lawyerData.id)
-            .maybeSingle()
-          setLawyer({ ...lawyerData, settings })
-        } else {
-          setLawyer(null)
-        }
+        setLawyer(await fetchLawyer(session))
       } catch {
         setLawyer(null)
       } finally {
-        loadingRef.current = false
         setLoading(false)
-        clearTimeout(timeout)
+      }
+    })
+
+    // Escuta apenas mudanças após a carga inicial (login, logout, refresh de token)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'INITIAL_SESSION') return // já tratado pelo getSession acima
+      if (cancelled) return
+      try {
+        setLawyer(await fetchLawyer(session))
+      } catch {
+        setLawyer(null)
+      } finally {
+        setLoading(false)
       }
     })
 
     return () => {
+      cancelled = true
       subscription.unsubscribe()
-      clearTimeout(timeout)
     }
   }, [])
 
