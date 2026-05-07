@@ -7,35 +7,32 @@ export function AuthProvider({ children }) {
   const [lawyer, setLawyer] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  const loadProfile = async (userId) => {
-    let { data } = await supabase
-      .from('Lawyer')
-      .select('*, settings:LawyerSettings(*)')
-      .eq('auth_id', userId)
-      .maybeSingle()
-
-    // Trigger may still be committing — retry once after 2s
-    if (!data) {
-      await new Promise((r) => setTimeout(r, 2000))
-      ;({ data } = await supabase
-        .from('Lawyer')
-        .select('*, settings:LawyerSettings(*)')
-        .eq('auth_id', userId)
-        .maybeSingle())
-    }
-
-    setLawyer(data)
-  }
-
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) loadProfile(session.user.id).finally(() => setLoading(false))
-      else setLoading(false)
-    })
-
+    // onAuthStateChange dispara INITIAL_SESSION na montagem — não precisamos de getSession separado
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (session) await loadProfile(session.user.id)
-      else setLawyer(null)
+      if (!session) {
+        setLawyer(null)
+        setLoading(false)
+        return
+      }
+
+      const { data: lawyerData } = await supabase
+        .from('Lawyer')
+        .select('*')
+        .eq('auth_id', session.user.id)
+        .maybeSingle()
+
+      if (lawyerData) {
+        const { data: settings } = await supabase
+          .from('LawyerSettings')
+          .select('*')
+          .eq('lawyerId', lawyerData.id)
+          .maybeSingle()
+        setLawyer({ ...lawyerData, settings })
+      } else {
+        setLawyer(null)
+      }
+
       setLoading(false)
     })
 
