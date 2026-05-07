@@ -19,14 +19,18 @@ Deno.serve(async (req) => {
 
   const url = new URL(req.url)
   const parts = url.pathname.split('/').filter(Boolean)
-  // last segment is the section (account/office/…) or 'settings' itself
   const section = parts.at(-1) !== 'settings' ? parts.at(-1) : null
 
+  const getLawyerId = async (): Promise<string | null> => {
+    const { data } = await sb.from('Lawyer').select('id').maybeSingle()
+    return data?.id ?? null
+  }
+
   try {
-    // ── GET /settings — load all settings ────────────────────────────────────
+    // ── GET /settings ─────────────────────────────────────────────────────────
     if (req.method === 'GET') {
       const [lawyerRes, sRes] = await Promise.all([
-        sb.from('Lawyer').select('id,name,email,whatsapp').single(),
+        sb.from('Lawyer').select('id,name,email,whatsapp,avatarUrl').maybeSingle(),
         sb.from('LawyerSettings').select('*').maybeSingle(),
       ])
       if (lawyerRes.error) throw lawyerRes.error
@@ -35,7 +39,7 @@ Deno.serve(async (req) => {
 
       return Response.json(
         {
-          account: { name: l.name, email: l.email, whatsapp: l.whatsapp },
+          account: { name: l?.name ?? '', email: l?.email ?? '', whatsapp: l?.whatsapp ?? '' },
           office: {
             cep: s?.cep ?? null,
             street: s?.street ?? null,
@@ -74,57 +78,70 @@ Deno.serve(async (req) => {
       )
     }
 
-    // ── Helper: get lawyer ID from RPC ────────────────────────────────────────
-    const getLawyerId = async () => {
-      const { data } = await sb.rpc('get_lawyer_id')
-      return data as string
-    }
-
-    if (req.method === 'PUT' && section === 'account') {
-      const { name, email, whatsapp } = await req.json()
+    // ── PUT handlers ──────────────────────────────────────────────────────────
+    if (req.method === 'PUT') {
       const lawyerId = await getLawyerId()
-      await sb.from('Lawyer').update({ name, email, whatsapp }).eq('id', lawyerId)
-      return Response.json({ ok: true }, { headers: cors })
-    }
+      if (!lawyerId) return Response.json({ error: 'Perfil não encontrado' }, { status: 404, headers: cors })
 
-    if (req.method === 'PUT' && section === 'office') {
-      const body = await req.json()
-      const lawyerId = await getLawyerId()
-      await sb.from('LawyerSettings').update(body).eq('lawyerId', lawyerId)
-      return Response.json({ ok: true }, { headers: cors })
-    }
+      const now = new Date().toISOString()
 
-    if (req.method === 'PUT' && section === 'scheduler') {
-      const body = await req.json()
-      const lawyerId = await getLawyerId()
-      const { error } = await sb.from('LawyerSettings').update(body).eq('lawyerId', lawyerId)
-      if (error) {
-        if (error.code === '23505')
-          return Response.json({ error: 'Este endereço já está em uso. Escolha outro.' }, { status: 409, headers: cors })
-        throw error
+      if (section === 'account') {
+        const { name, email, whatsapp } = await req.json()
+        const { error } = await sb.from('Lawyer')
+          .update({ name, email, whatsapp, updatedAt: now })
+          .eq('id', lawyerId)
+        if (error) throw error
+        return Response.json({ ok: true }, { headers: cors })
       }
-      return Response.json({ ok: true }, { headers: cors })
-    }
 
-    if (req.method === 'PUT' && section === 'calendar') {
-      const body = await req.json()
-      const lawyerId = await getLawyerId()
-      await sb.from('LawyerSettings').update(body).eq('lawyerId', lawyerId)
-      return Response.json({ ok: true }, { headers: cors })
-    }
+      if (section === 'office') {
+        const body = await req.json()
+        const { error } = await sb.from('LawyerSettings')
+          .update({ ...body, updatedAt: now })
+          .eq('lawyerId', lawyerId)
+        if (error) throw error
+        return Response.json({ ok: true }, { headers: cors })
+      }
 
-    if (req.method === 'PUT' && section === 'financial') {
-      const { asaasApiKey } = await req.json()
-      const lawyerId = await getLawyerId()
-      await sb.from('LawyerSettings').update({ asaasApiKey }).eq('lawyerId', lawyerId)
-      return Response.json({ ok: true }, { headers: cors })
-    }
+      if (section === 'scheduler') {
+        const body = await req.json()
+        const { error } = await sb.from('LawyerSettings')
+          .update({ ...body, updatedAt: now })
+          .eq('lawyerId', lawyerId)
+        if (error) {
+          if (error.code === '23505')
+            return Response.json({ error: 'Este endereço já está em uso. Escolha outro.' }, { status: 409, headers: cors })
+          throw error
+        }
+        return Response.json({ ok: true }, { headers: cors })
+      }
 
-    if (req.method === 'PUT' && section === 'alerts') {
-      const body = await req.json()
-      const lawyerId = await getLawyerId()
-      await sb.from('LawyerSettings').update(body).eq('lawyerId', lawyerId)
-      return Response.json({ ok: true }, { headers: cors })
+      if (section === 'calendar') {
+        const body = await req.json()
+        const { error } = await sb.from('LawyerSettings')
+          .update({ ...body, updatedAt: now })
+          .eq('lawyerId', lawyerId)
+        if (error) throw error
+        return Response.json({ ok: true }, { headers: cors })
+      }
+
+      if (section === 'financial') {
+        const { asaasApiKey } = await req.json()
+        const { error } = await sb.from('LawyerSettings')
+          .update({ asaasApiKey, updatedAt: now })
+          .eq('lawyerId', lawyerId)
+        if (error) throw error
+        return Response.json({ ok: true }, { headers: cors })
+      }
+
+      if (section === 'alerts') {
+        const body = await req.json()
+        const { error } = await sb.from('LawyerSettings')
+          .update({ ...body, updatedAt: now })
+          .eq('lawyerId', lawyerId)
+        if (error) throw error
+        return Response.json({ ok: true }, { headers: cors })
+      }
     }
 
     return new Response('Not Found', { status: 404, headers: cors })
