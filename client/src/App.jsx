@@ -10,6 +10,8 @@ import Appointments from './pages/Appointments'
 import Clients from './pages/Clients'
 import Finance from './pages/Finance'
 import Settings from './pages/Settings'
+import TermsPage from './pages/TermsPage'
+import PrivacyPage from './pages/PrivacyPage'
 
 export default function App() {
   return (
@@ -17,6 +19,8 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<LandingPage />} />
+          <Route path="/termos"      element={<TermsPage />} />
+          <Route path="/privacidade" element={<PrivacyPage />} />
           <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
             <Route path="/dashboard"    element={<Dashboard />} />
             <Route path="/appointments" element={<Appointments />} />

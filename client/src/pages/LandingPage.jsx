@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 
@@ -213,8 +213,48 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-navy-900 border-t border-white/10 py-8 px-6 text-center text-gray-500 text-sm">
-        © {new Date().getFullYear()} AgendarAdv — Feito para advogados brasileiros
+      <footer className="bg-navy-900 border-t border-white/10 pt-10 pb-8 px-6">
+        <div className="max-w-5xl mx-auto">
+
+          {/* Parceiros */}
+          <div className="text-center mb-8">
+            <p className="text-gray-500 text-xs uppercase tracking-widest font-semibold mb-4">Conheça também</p>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+              <a
+                href="https://penhora.app.br"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl px-5 py-3 transition-colors group"
+              >
+                <span className="text-xl">⚖️</span>
+                <div className="text-left">
+                  <p className="text-white font-semibold text-sm group-hover:text-brand-400 transition-colors">penhora.app.br</p>
+                  <p className="text-gray-500 text-xs">Pesquisa de penhora online</p>
+                </div>
+              </a>
+              <a
+                href="https://sumulando.com.br"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl px-5 py-3 transition-colors group"
+              >
+                <span className="text-xl">📚</span>
+                <div className="text-left">
+                  <p className="text-white font-semibold text-sm group-hover:text-brand-400 transition-colors">sumulando.com.br</p>
+                  <p className="text-gray-500 text-xs">Súmulas e jurisprudência</p>
+                </div>
+              </a>
+            </div>
+          </div>
+
+          <div className="border-t border-white/10 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-500">
+            <span>© {new Date().getFullYear()} AgendarAdv — Feito para advogados brasileiros</span>
+            <div className="flex gap-4">
+              <Link to="/termos" className="hover:text-gray-300 transition-colors">Termos de Uso</Link>
+              <Link to="/privacidade" className="hover:text-gray-300 transition-colors">Política de Privacidade</Link>
+            </div>
+          </div>
+        </div>
       </footer>
 
       {/* Modal */}
