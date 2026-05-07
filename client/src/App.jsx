@@ -17,7 +17,6 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<LandingPage />} />
-          <Route path="/agendar/:slug" element={<Scheduler />} />
           <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
             <Route path="/dashboard"    element={<Dashboard />} />
             <Route path="/appointments" element={<Appointments />} />
@@ -25,6 +24,7 @@ export default function App() {
             <Route path="/finance"      element={<Finance />} />
             <Route path="/settings"     element={<Settings />} />
           </Route>
+          <Route path="/:slug" element={<Scheduler />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

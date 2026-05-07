@@ -97,7 +97,12 @@ Deno.serve(async (req) => {
     if (req.method === 'PUT' && section === 'scheduler') {
       const body = await req.json()
       const lawyerId = await getLawyerId()
-      await sb.from('LawyerSettings').update(body).eq('lawyerId', lawyerId)
+      const { error } = await sb.from('LawyerSettings').update(body).eq('lawyerId', lawyerId)
+      if (error) {
+        if (error.code === '23505')
+          return Response.json({ error: 'Este endereço já está em uso. Escolha outro.' }, { status: 409, headers: cors })
+        throw error
+      }
       return Response.json({ ok: true }, { headers: cors })
     }
 
