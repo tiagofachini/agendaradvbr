@@ -61,13 +61,21 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-bold text-navy-900 mb-3">4. Plano e Cobrança</h2>
-            <p>
-              O AgendarAdv é <strong>gratuito</strong> para advogados que realizem pelo menos uma cobrança via
-              plataforma nos últimos 30 dias. Contas que permaneçam mais de 30 dias sem cobranças ativas estarão
-              sujeitas à cobrança de <strong>R$ 29,90/mês</strong>.
+            <h2 className="text-lg font-bold text-navy-900 mb-3">4. Planos e Cobrança</h2>
+            <p className="mb-3">
+              O AgendarAdv oferece dois planos:
             </p>
-            <p className="mt-2">
+            <p className="mb-2"><strong>Plano Gratuito (R$ 0/mês):</strong> acesso às funcionalidades essenciais da plataforma, com os seguintes limites:
+            </p>
+            <ul className="list-disc list-inside text-gray-600 space-y-1 mb-4">
+              <li>Limite de 30 consultas/agendamentos por mês</li>
+              <li>Possibilidade de exibição de anúncios na interface</li>
+              <li>Sem integração com Google Agenda, Outlook, Meet ou Teams</li>
+              <li>Sem transcrição de reuniões por IA</li>
+              <li>Sem confirmação prévia de presença via WhatsApp</li>
+            </ul>
+            <p className="mb-2"><strong>Plano Pro (R$ 29,90/mês):</strong> todas as funcionalidades sem limitações, incluindo agenda ilimitada, sem anúncios, integrações avançadas, transcrição por IA e confirmações automáticas de presença.</p>
+            <p className="mt-3">
               O AgendarAdv <strong>não processa pagamentos</strong> de clientes finais diretamente. A integração
               financeira é realizada via Asaas, empresa regulamentada pelo Banco Central do Brasil (Bacen). O valor
               das consultas é transferido diretamente para a conta bancária do advogado cadastrada no Asaas.

@@ -104,7 +104,7 @@ export default function LandingPage() {
       <section className="bg-navy-900 pt-32 pb-24 px-6">
         <div className="max-w-4xl mx-auto text-center">
           <div className="inline-block mb-6 px-4 py-1.5 rounded-full bg-brand-500/20 text-brand-400 text-sm font-medium">
-            Grátis para advogados que cobram pelo app
+            100% gratuito — sem cartão, sem prazo, sem pegadinha
           </div>
           <h1 className="text-4xl md:text-6xl font-extrabold text-white leading-tight mb-6">
             Mais consultas.<br />
@@ -128,7 +128,7 @@ export default function LandingPage() {
               Já tenho conta
             </button>
           </div>
-          <p className="mt-6 text-sm text-gray-500">Sem cartão de crédito. Sem contrato. Sem complicação.</p>
+          <p className="mt-6 text-sm text-gray-500">Sem cartão de crédito. Sem contrato. Comece em segundos.</p>
         </div>
       </section>
 
@@ -182,32 +182,93 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Preço */}
-      <section className="py-20 px-6 bg-navy-900">
-        <div className="max-w-3xl mx-auto text-center">
-          <h2 className="text-3xl font-bold text-white mb-4">
-            Simples assim: <span className="text-brand-400">use e não pague nada</span>
-          </h2>
-          <p className="text-gray-300 mb-10 text-lg">
-            O AgendarAdv é gratuito para advogados que realizam cobranças pelo aplicativo.
-            Só pagam R$&nbsp;29,90/mês aqueles que ficarem mais de 30 dias sem cobrar pelo app.
+      {/* Planos */}
+      <section className="py-20 px-6 bg-gray-50">
+        <div className="max-w-4xl mx-auto">
+          <h2 className="text-3xl font-bold text-center text-navy-900 mb-3">Grátis de verdade. Sem asterisco.</h2>
+          <p className="text-center text-gray-500 mb-12 text-lg">
+            Comece sem pagar nada. Faça upgrade quando precisar de mais.
           </p>
-          <div className="bg-white/10 rounded-2xl p-8 border border-white/20 max-w-sm mx-auto">
-            <div className="text-5xl font-extrabold text-white mb-1">R$ 0</div>
-            <div className="text-brand-400 font-medium mb-6">para sempre, ao usar cobranças</div>
-            <ul className="text-gray-200 text-sm space-y-3 text-left mb-8">
-              {['Agenda ilimitada', 'Clientes ilimitados', 'Agendador público personalizado', 'Dashboard e relatórios', 'Integração com Asaas', 'Alertas por WhatsApp e email'].map(i => (
-                <li key={i} className="flex items-center gap-2">
-                  <span className="text-brand-400">✓</span> {i}
-                </li>
-              ))}
-            </ul>
-            <button
-              onClick={() => openModal('register')}
-              className="w-full py-3 rounded-xl bg-brand-500 text-white font-bold hover:bg-brand-400 transition-colors"
-            >
-              Criar conta grátis
-            </button>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+            {/* Plano Gratuito */}
+            <div className="bg-white rounded-2xl border-2 border-gray-200 p-8 flex flex-col">
+              <div className="mb-6">
+                <span className="inline-block px-3 py-1 rounded-full bg-gray-100 text-gray-600 text-xs font-semibold uppercase tracking-wide mb-4">Gratuito</span>
+                <div className="flex items-end gap-1 mb-1">
+                  <span className="text-5xl font-extrabold text-navy-900">R$ 0</span>
+                  <span className="text-gray-400 text-sm mb-2">/mês</span>
+                </div>
+                <p className="text-gray-500 text-sm">Para começar e organizar sua rotina.</p>
+              </div>
+
+              <ul className="space-y-3 text-sm flex-1 mb-8">
+                {[
+                  ['✓', 'Agenda e controle de compromissos', true],
+                  ['✓', 'Cadastro de clientes com histórico', true],
+                  ['✓', 'Agendador público personalizado', true],
+                  ['✓', 'Dashboard e módulo financeiro', true],
+                  ['✓', 'Integração com Asaas (cobranças)', true],
+                  ['~', 'Até 30 consultas/mês', false],
+                  ['~', 'Pode exibir anúncios na plataforma', false],
+                  ['✗', 'Integração com Google Agenda ou Outlook', false],
+                  ['✗', 'Videochamada via Meet ou Teams', false],
+                  ['✗', 'Transcrição da reunião por IA', false],
+                  ['✗', 'Confirmação prévia com cliente via WhatsApp', false],
+                ].map(([icon, text, ok]) => (
+                  <li key={text} className={`flex items-start gap-2.5 ${ok ? 'text-gray-700' : icon === '~' ? 'text-amber-600' : 'text-gray-400'}`}>
+                    <span className={`mt-0.5 font-bold flex-shrink-0 ${ok ? 'text-green-500' : icon === '~' ? 'text-amber-500' : 'text-gray-300'}`}>{icon}</span>
+                    {text}
+                  </li>
+                ))}
+              </ul>
+
+              <button
+                onClick={() => openModal('register')}
+                className="w-full py-3 rounded-xl border-2 border-navy-900 text-navy-900 font-bold hover:bg-navy-900 hover:text-white transition-colors"
+              >
+                Criar conta grátis
+              </button>
+            </div>
+
+            {/* Plano Pro */}
+            <div className="bg-navy-900 rounded-2xl border-2 border-brand-500 p-8 flex flex-col relative overflow-hidden">
+              <div className="absolute top-0 right-0 bg-brand-500 text-white text-xs font-bold px-4 py-1.5 rounded-bl-xl">RECOMENDADO</div>
+              <div className="mb-6">
+                <span className="inline-block px-3 py-1 rounded-full bg-white/10 text-brand-400 text-xs font-semibold uppercase tracking-wide mb-4">Pro</span>
+                <div className="flex items-end gap-1 mb-1">
+                  <span className="text-5xl font-extrabold text-white">R$ 29,90</span>
+                  <span className="text-gray-400 text-sm mb-2">/mês</span>
+                </div>
+                <p className="text-gray-400 text-sm">Para advogados que querem crescer com eficiência.</p>
+              </div>
+
+              <ul className="space-y-3 text-sm flex-1 mb-8">
+                {[
+                  'Tudo do plano gratuito',
+                  'Consultas ilimitadas',
+                  'Sem anúncios',
+                  'Integração com Google Agenda e Outlook',
+                  'Videochamada integrada via Meet ou Teams',
+                  'Transcrição automática da reunião por IA',
+                  'Confirmação prévia com cliente via WhatsApp',
+                ].map((text, i) => (
+                  <li key={text} className="flex items-start gap-2.5 text-gray-200">
+                    <span className={`mt-0.5 font-bold flex-shrink-0 ${i === 0 ? 'text-gray-400' : 'text-brand-400'}`}>✓</span>
+                    {text}
+                  </li>
+                ))}
+              </ul>
+
+              <button
+                onClick={() => openModal('register')}
+                className="w-full py-3 rounded-xl bg-brand-500 text-white font-bold hover:bg-brand-400 transition-colors"
+              >
+                Começar com o Pro
+              </button>
+            </div>
+
           </div>
         </div>
       </section>
