@@ -5,7 +5,7 @@ import {
   eachDayOfInterval, getDay, isSameDay, isToday, isBefore, startOfDay,
 } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import api from '../lib/api'
+import { publicApi } from '../lib/api'
 import { LEGAL_SPECIALTIES } from '../lib/specialties'
 
 const WEEK_DAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
@@ -85,7 +85,7 @@ export default function Scheduler() {
 
   // Carrega info do agendador
   useEffect(() => {
-    api.get(`/scheduler/${slug}`)
+    publicApi.get(`/scheduler/${slug}`)
       .then((r) => setInfo(r.data))
       .catch(() => setNotFound(true))
   }, [slug])
@@ -95,7 +95,7 @@ export default function Scheduler() {
     setLoadingSlots(true)
     setSelectedSlot(null)
     try {
-      const { data } = await api.get(`/scheduler/${slug}/slots?date=${format(date, 'yyyy-MM-dd')}`)
+      const { data } = await publicApi.get(`/scheduler/${slug}/slots?date=${format(date, 'yyyy-MM-dd')}`)
       setSlots(data.slots)
     } catch {
       setSlots([])
@@ -132,10 +132,10 @@ export default function Scheduler() {
   const handleBook = async () => {
     setBooking(true); setError('')
     try {
-      const { data } = await api.post(`/scheduler/${slug}/book`, {
+      const { data } = await publicApi.post(`/scheduler/${slug}/book`, {
         ...form,
-        date: format(selectedDate, 'yyyy-MM-dd'),
-        time: selectedSlot,
+        selectedDate: format(selectedDate, 'yyyy-MM-dd'),
+        selectedSlot,
       })
       setResult(data)
       setStep(3)
