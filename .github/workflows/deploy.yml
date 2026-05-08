@@ -38,10 +38,14 @@ jobs:
         run: |
           lftp -u "$FTP_USER,$FTP_PASS" \
             -e "set ftp:ssl-force true; \
+                set ftp:ssl-allow true; \
                 set ssl:verify-certificate false; \
+                set ftp:passive-mode true; \
+                set ftp:prefer-epsv false; \
                 set xfer:use-temp-file false; \
+                set net:timeout 60; \
                 set net:max-retries 3; \
-                set net:reconnect-interval-base 5; \
-                mirror -R --no-perms --parallel=3 --exclude logo.png client/dist/ /public_html/; \
+                set net:reconnect-interval-base 10; \
+                mirror -R --no-perms --parallel=2 --exclude logo.png client/dist/ /public_html/; \
                 quit" \
-            ftps://$FTP_HOST
+            ftp://$FTP_HOST:21
