@@ -27,25 +27,49 @@ jobs:
       - name: Build frontend
         run: npm --prefix client run build
 
-      - name: Instalar lftp
-        run: sudo apt-get install -y lftp
-
       - name: Deploy via FTP
         env:
           FTP_HOST: ${{ secrets.FTP_HOST }}
           FTP_USER: ${{ secrets.FTP_USER }}
           FTP_PASS: ${{ secrets.FTP_PASS }}
         run: |
-          lftp -u "$FTP_USER,$FTP_PASS" \
-            -e "set ftp:ssl-force true; \
-                set ftp:ssl-allow true; \
-                set ssl:verify-certificate false; \
-                set ftp:passive-mode true; \
-                set ftp:prefer-epsv false; \
-                set xfer:use-temp-file false; \
-                set net:timeout 60; \
-                set net:max-retries 3; \
-                set net:reconnect-interval-base 10; \
-                mirror -R --no-perms --parallel=2 --exclude logo.png client/dist/ /public_html/; \
-                quit" \
-            ftp://$FTP_HOST:21
+          python3 - <<'PYEOF'
+          import ftplib, os, ssl, sys
+
+          SKIP = {'logo.png', '.htaccess'}
+
+          def upload(ftp, local_dir, remote_dir):
+              for item in sorted(os.listdir(local_dir)):
+                  if item in SKIP:
+                      print(f'  skip {item}')
+                      continue
+                  local_path  = os.path.join(local_dir, item)
+                  remote_path = f'{remote_dir}/{item}'
+                  if os.path.isfile(local_path):
+                      with open(local_path, 'rb') as f:
+                          try:
+                              ftp.storbinary(f'STOR {remote_path}', f)
+                              print(f'  ok   {remote_path}')
+                          except Exception as e:
+                              print(f'  FAIL {remote_path}: {e}', file=sys.stderr)
+                              sys.exit(1)
+                  elif os.path.isdir(local_path):
+                      try:
+                          ftp.mkd(remote_path)
+                      except ftplib.error_perm:
+                          pass  # directory already exists
+                      upload(ftp, local_path, remote_path)
+
+          ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+          ctx.check_hostname = False
+          ctx.verify_mode   = ssl.CERT_NONE
+
+          ftp = ftplib.FTP_TLS(context=ctx)
+          ftp.connect(os.environ['FTP_HOST'], 21)
+          ftp.login(os.environ['FTP_USER'], os.environ['FTP_PASS'])
+          ftp.prot_p()
+
+          upload(ftp, 'client/dist', '/public_html')
+          ftp.quit()
+          print('Deploy concluído!')
+          PYEOF
