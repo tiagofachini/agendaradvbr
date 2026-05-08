@@ -22,11 +22,6 @@ Deno.serve(async (req) => {
   const parts = url.pathname.split('/').filter(Boolean)
   const section = parts.at(-1) !== 'settings' ? parts.at(-1) : null
 
-  const getLawyerId = async (): Promise<string | null> => {
-    const { data } = await sb.from('Lawyer').select('id').maybeSingle()
-    return data?.id ?? null
-  }
-
   try {
     // ── GET /settings ─────────────────────────────────────────────────────────
     if (req.method === 'GET') {
@@ -81,8 +76,10 @@ Deno.serve(async (req) => {
 
     // ── PUT handlers ──────────────────────────────────────────────────────────
     if (req.method === 'PUT') {
-      const lawyerId = await getLawyerId()
-      if (!lawyerId) return Response.json({ error: 'Perfil não encontrado' }, { status: 404, headers: cors })
+      // Get lawyer id and existing settings id (or generate new one)
+      const { data: lawyer } = await sb.from('Lawyer').select('id').maybeSingle()
+      if (!lawyer?.id) return Response.json({ error: 'Perfil não encontrado' }, { status: 404, headers: cors })
+      const lawyerId = lawyer.id
 
       if (section === 'account') {
         const { name, email, whatsapp } = await req.json()
@@ -93,18 +90,26 @@ Deno.serve(async (req) => {
         return Response.json({ ok: true }, { headers: cors })
       }
 
+      // For all LawyerSettings sections: fetch existing row id or generate a new UUID
+      const { data: existing } = await sb.from('LawyerSettings').select('id').eq('lawyerId', lawyerId).maybeSingle()
+      const settingsId = existing?.id ?? crypto.randomUUID()
+
+      const upsertSettings = async (body: Record<string, unknown>) => {
+        const { error } = await sb.from('LawyerSettings')
+          .upsert({ id: settingsId, lawyerId, ...body }, { onConflict: 'lawyerId' })
+        return error
+      }
+
       if (section === 'office') {
         const body = await req.json()
-        const { error } = await sb.from('LawyerSettings')
-          .upsert({ lawyerId, ...body }, { onConflict: 'lawyerId' })
+        const error = await upsertSettings(body)
         if (error) throw error
         return Response.json({ ok: true }, { headers: cors })
       }
 
       if (section === 'scheduler') {
         const body = await req.json()
-        const { error } = await sb.from('LawyerSettings')
-          .upsert({ lawyerId, ...body }, { onConflict: 'lawyerId' })
+        const error = await upsertSettings(body)
         if (error) {
           if (error.code === '23505')
             return Response.json({ error: 'Este endereço já está em uso. Escolha outro.' }, { status: 409, headers: cors })
@@ -115,24 +120,21 @@ Deno.serve(async (req) => {
 
       if (section === 'calendar') {
         const body = await req.json()
-        const { error } = await sb.from('LawyerSettings')
-          .upsert({ lawyerId, ...body }, { onConflict: 'lawyerId' })
+        const error = await upsertSettings(body)
         if (error) throw error
         return Response.json({ ok: true }, { headers: cors })
       }
 
       if (section === 'financial') {
         const { asaasApiKey } = await req.json()
-        const { error } = await sb.from('LawyerSettings')
-          .upsert({ lawyerId, asaasApiKey }, { onConflict: 'lawyerId' })
+        const error = await upsertSettings({ asaasApiKey })
         if (error) throw error
         return Response.json({ ok: true }, { headers: cors })
       }
 
       if (section === 'alerts') {
         const body = await req.json()
-        const { error } = await sb.from('LawyerSettings')
-          .upsert({ lawyerId, ...body }, { onConflict: 'lawyerId' })
+        const error = await upsertSettings(body)
         if (error) throw error
         return Response.json({ ok: true }, { headers: cors })
       }
