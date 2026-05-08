@@ -118,6 +118,11 @@ function AccountSection({ data, onSaved }) {
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
 
+  useEffect(() => {
+    const a = data.account || {}
+    setForm({ name: a.name || '', email: a.email || '', whatsapp: a.whatsapp || '' })
+  }, [data])
+
   const save = async (e) => {
     e.preventDefault(); setLoading(true); setSaved(false); setError('')
     try {
@@ -147,7 +152,7 @@ function AccountSection({ data, onSaved }) {
 }
 
 // ── Escritório ────────────────────────────────────────────────────────────────
-function OfficeSection({ data }) {
+function OfficeSection({ data, onSaved }) {
   const { lawyer } = useAuth()
   const o = data.office || {}
   const [form, setForm] = useState({
@@ -161,6 +166,16 @@ function OfficeSection({ data }) {
   const [error, setError] = useState('')
   const [cepLoading, setCepLoading] = useState(false)
   const [specSearch, setSpecSearch] = useState('')
+
+  useEffect(() => {
+    const o = data.office || {}
+    setForm({
+      cep: o.cep || '', street: o.street || '', number: o.number || '',
+      complement: o.complement || '', neighborhood: o.neighborhood || '',
+      city: o.city || '', state: o.state || '', logoUrl: o.logoUrl || '',
+      specialties: o.specialties || [],
+    })
+  }, [data])
 
   const lookupCep = async () => {
     if (form.cep.replace(/\D/g, '').length !== 8) return
@@ -183,7 +198,7 @@ function OfficeSection({ data }) {
     e.preventDefault(); setLoading(true); setSaved(false); setError('')
     try {
       await api.put('/settings/office', form)
-      setSaved(true)
+      setSaved(true); onSaved()
     } catch (err) {
       setError(errMsg(err))
     }
@@ -251,7 +266,7 @@ function OfficeSection({ data }) {
 }
 
 // ── Agendador ─────────────────────────────────────────────────────────────────
-function SchedulerSection({ data }) {
+function SchedulerSection({ data, onSaved }) {
   const sc = data.scheduler || {}
   const [form, setForm] = useState({
     schedulerSlug: sc.schedulerSlug || '',
@@ -262,11 +277,20 @@ function SchedulerSection({ data }) {
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
 
+  useEffect(() => {
+    const sc = data.scheduler || {}
+    setForm({
+      schedulerSlug: sc.schedulerSlug || '',
+      slotDuration: sc.slotDuration || 60,
+      highlightMessage: sc.highlightMessage || '',
+    })
+  }, [data])
+
   const save = async (e) => {
     e.preventDefault(); setLoading(true); setSaved(false); setError('')
     try {
       await api.put('/settings/scheduler', form)
-      setSaved(true)
+      setSaved(true); onSaved()
     } catch (err) {
       setError(err.response?.data?.error || errMsg(err))
     }
@@ -307,7 +331,7 @@ function SchedulerSection({ data }) {
 }
 
 // ── Agenda ────────────────────────────────────────────────────────────────────
-function CalendarSection({ data }) {
+function CalendarSection({ data, onSaved }) {
   const c = data.calendar || {}
   const [form, setForm] = useState({
     workDays: c.workDays || [1, 2, 3, 4, 5],
@@ -319,6 +343,16 @@ function CalendarSection({ data }) {
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
 
+  useEffect(() => {
+    const c = data.calendar || {}
+    setForm({
+      workDays: c.workDays || [1, 2, 3, 4, 5],
+      workStartTime: c.workStartTime || '09:00',
+      workEndTime: c.workEndTime || '18:00',
+      hourlyRate: c.hourlyRate || '',
+    })
+  }, [data])
+
   const toggleDay = (d) =>
     setForm(f => ({
       ...f,
@@ -329,7 +363,7 @@ function CalendarSection({ data }) {
     e.preventDefault(); setLoading(true); setSaved(false); setError('')
     try {
       await api.put('/settings/calendar', form)
-      setSaved(true)
+      setSaved(true); onSaved()
     } catch (err) {
       setError(errMsg(err))
     }
@@ -376,6 +410,11 @@ function FinancialSection({ data, onSaved }) {
   const [loading, setLoading] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    const f = data.financial || {}
+    setShowInput(!f.asaasApiKey)
+  }, [data])
 
   const save = async (e) => {
     e.preventDefault()
@@ -459,7 +498,7 @@ function FinancialSection({ data, onSaved }) {
 }
 
 // ── Alertas ───────────────────────────────────────────────────────────────────
-function AlertsSection({ data }) {
+function AlertsSection({ data, onSaved }) {
   const al = data.alerts || {}
   const [form, setForm] = useState({
     newBookingByEmail: al.newBookingByEmail ?? true,
@@ -471,11 +510,21 @@ function AlertsSection({ data }) {
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
 
+  useEffect(() => {
+    const al = data.alerts || {}
+    setForm({
+      newBookingByEmail: al.newBookingByEmail ?? true,
+      newBookingByWhatsapp: al.newBookingByWhatsapp ?? false,
+      cancellationByEmail: al.cancellationByEmail ?? true,
+      cancellationByWhatsapp: al.cancellationByWhatsapp ?? false,
+    })
+  }, [data])
+
   const save = async (e) => {
     e.preventDefault(); setLoading(true); setSaved(false); setError('')
     try {
       await api.put('/settings/alerts', form)
-      setSaved(true)
+      setSaved(true); onSaved()
     } catch (err) {
       setError(errMsg(err))
     }
@@ -550,11 +599,11 @@ export default function Settings() {
       </div>
 
       {activeTab === 'account'   && <AccountSection   data={settingsData} onSaved={load} />}
-      {activeTab === 'office'    && <OfficeSection     data={settingsData} />}
-      {activeTab === 'scheduler' && <SchedulerSection  data={settingsData} />}
-      {activeTab === 'calendar'  && <CalendarSection   data={settingsData} />}
+      {activeTab === 'office'    && <OfficeSection     data={settingsData} onSaved={load} />}
+      {activeTab === 'scheduler' && <SchedulerSection  data={settingsData} onSaved={load} />}
+      {activeTab === 'calendar'  && <CalendarSection   data={settingsData} onSaved={load} />}
       {activeTab === 'financial' && <FinancialSection  data={settingsData} onSaved={load} />}
-      {activeTab === 'alerts'    && <AlertsSection     data={settingsData} />}
+      {activeTab === 'alerts'    && <AlertsSection     data={settingsData} onSaved={load} />}
     </div>
   )
 }

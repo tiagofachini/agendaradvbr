@@ -42,26 +42,26 @@ Deno.serve(async (req) => {
         {
           account: { name: l?.name ?? '', email: l?.email ?? '', whatsapp: l?.whatsapp ?? '' },
           office: {
-            cep: s?.cep ?? null,
-            street: s?.street ?? null,
-            number: s?.number ?? null,
-            complement: s?.complement ?? null,
-            neighborhood: s?.neighborhood ?? null,
-            city: s?.city ?? null,
-            state: s?.state ?? null,
-            logoUrl: s?.logoUrl ?? null,
+            cep: s?.cep ?? '',
+            street: s?.street ?? '',
+            number: s?.number ?? '',
+            complement: s?.complement ?? '',
+            neighborhood: s?.neighborhood ?? '',
+            city: s?.city ?? '',
+            state: s?.state ?? '',
+            logoUrl: s?.logoUrl ?? '',
             specialties: s?.specialties ?? [],
           },
           scheduler: {
-            schedulerSlug: s?.schedulerSlug ?? null,
+            schedulerSlug: s?.schedulerSlug ?? '',
             slotDuration: s?.slotDuration ?? 60,
-            highlightMessage: s?.highlightMessage ?? null,
+            highlightMessage: s?.highlightMessage ?? '',
           },
           calendar: {
             workDays: s?.workDays ?? [1, 2, 3, 4, 5],
             workStartTime: s?.workStartTime ?? '09:00',
             workEndTime: s?.workEndTime ?? '18:00',
-            hourlyRate: s?.hourlyRate ?? null,
+            hourlyRate: s?.hourlyRate ?? '',
           },
           financial: {
             asaasApiKey: s?.asaasApiKey
@@ -84,12 +84,10 @@ Deno.serve(async (req) => {
       const lawyerId = await getLawyerId()
       if (!lawyerId) return Response.json({ error: 'Perfil não encontrado' }, { status: 404, headers: cors })
 
-      const now = new Date().toISOString()
-
       if (section === 'account') {
         const { name, email, whatsapp } = await req.json()
         const { error } = await sb.from('Lawyer')
-          .update({ name, email, whatsapp, updatedAt: now })
+          .update({ name, email, whatsapp })
           .eq('id', lawyerId)
         if (error) throw error
         return Response.json({ ok: true }, { headers: cors })
@@ -98,8 +96,7 @@ Deno.serve(async (req) => {
       if (section === 'office') {
         const body = await req.json()
         const { error } = await sb.from('LawyerSettings')
-          .update({ ...body, updatedAt: now })
-          .eq('lawyerId', lawyerId)
+          .upsert({ lawyerId, ...body }, { onConflict: 'lawyerId' })
         if (error) throw error
         return Response.json({ ok: true }, { headers: cors })
       }
@@ -107,8 +104,7 @@ Deno.serve(async (req) => {
       if (section === 'scheduler') {
         const body = await req.json()
         const { error } = await sb.from('LawyerSettings')
-          .update({ ...body, updatedAt: now })
-          .eq('lawyerId', lawyerId)
+          .upsert({ lawyerId, ...body }, { onConflict: 'lawyerId' })
         if (error) {
           if (error.code === '23505')
             return Response.json({ error: 'Este endereço já está em uso. Escolha outro.' }, { status: 409, headers: cors })
@@ -120,8 +116,7 @@ Deno.serve(async (req) => {
       if (section === 'calendar') {
         const body = await req.json()
         const { error } = await sb.from('LawyerSettings')
-          .update({ ...body, updatedAt: now })
-          .eq('lawyerId', lawyerId)
+          .upsert({ lawyerId, ...body }, { onConflict: 'lawyerId' })
         if (error) throw error
         return Response.json({ ok: true }, { headers: cors })
       }
@@ -129,8 +124,7 @@ Deno.serve(async (req) => {
       if (section === 'financial') {
         const { asaasApiKey } = await req.json()
         const { error } = await sb.from('LawyerSettings')
-          .update({ asaasApiKey, updatedAt: now })
-          .eq('lawyerId', lawyerId)
+          .upsert({ lawyerId, asaasApiKey }, { onConflict: 'lawyerId' })
         if (error) throw error
         return Response.json({ ok: true }, { headers: cors })
       }
@@ -138,8 +132,7 @@ Deno.serve(async (req) => {
       if (section === 'alerts') {
         const body = await req.json()
         const { error } = await sb.from('LawyerSettings')
-          .update({ ...body, updatedAt: now })
-          .eq('lawyerId', lawyerId)
+          .upsert({ lawyerId, ...body }, { onConflict: 'lawyerId' })
         if (error) throw error
         return Response.json({ ok: true }, { headers: cors })
       }
