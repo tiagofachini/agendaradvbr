@@ -11,21 +11,6 @@ import { LEGAL_SPECIALTIES } from '../lib/specialties'
 const WEEK_DAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 const STEPS = ['Horário', 'Dados', 'Problema']
 
-// ── Detecção automática de especialidade ──────────────────────────────────────
-const SPECIALTY_MAP = [
-  ['Direito Penal',          ['crime', 'preso', 'prisão', 'polícia', 'delegacia', 'roubo', 'furto', 'homicídio', 'penal', 'criminal', 'infração', 'batida', 'trânsito', 'flagrante', 'inquérito']],
-  ['Direito de Família',     ['divórcio', 'separação', 'guarda', 'pensão alimentícia', 'alimentos', 'casamento', 'adoção', 'família', 'cônjuge', 'inventário', 'herança', 'espólio']],
-  ['Direito do Trabalho',    ['demissão', 'trabalhista', 'emprego', 'salário', 'férias', 'fgts', 'clt', 'empresa', 'demitido', 'rescisão', 'horas extras', 'assédio moral', 'desemprego', 'patrão']],
-  ['Direito do Consumidor',  ['produto', 'serviço ruim', 'loja', 'compra', 'entrega', 'reembolso', 'garantia', 'procon', 'cancelamento', 'cobrança indevida', 'propaganda enganosa']],
-  ['Direito Civil',          ['contrato', 'dívida', 'cobrança', 'aluguel', 'vizinho', 'dano', 'indenização', 'prejuízo', 'responsabilidade civil', 'calúnia', 'difamação']],
-  ['Direito Previdenciário', ['aposentadoria', 'inss', 'benefício', 'pensão por morte', 'auxílio doença', 'previdência', 'bpc', 'loas', 'afastamento']],
-  ['Direito Tributário',     ['imposto', 'tributo', 'receita federal', 'tributário', 'irpf', 'icms', 'nota fiscal', 'sonegação', 'parcelamento fiscal']],
-  ['Direito Imobiliário',    ['escritura', 'registro de imóvel', 'usucapião', 'construtora', 'financiamento imobiliário', 'incorporadora', 'lote', 'terreno']],
-  ['Direito Empresarial',    ['empresa', 'sócio', 'contrato social', 'cnpj', 'falência', 'recuperação judicial', 'negócio', 'franquia', 'holding']],
-  ['Direito Ambiental',      ['ambiental', 'poluição', 'desmatamento', 'ibama', 'licença ambiental', 'embargo']],
-  ['Direito Administrativo', ['concurso público', 'servidor público', 'licitação', 'prefeitura', 'governo', 'multa administrativa', 'processo administrativo']],
-]
-
 function maskPhone(raw) {
   const d = raw.replace(/\D/g, '').slice(0, 11)
   if (!d) return ''
@@ -33,15 +18,6 @@ function maskPhone(raw) {
   if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`
   if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`
   return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`
-}
-
-function detectSpecialty(text) {
-  if (!text || text.length < 15) return ''
-  const t = text.toLowerCase()
-  for (const [specialty, keywords] of SPECIALTY_MAP) {
-    if (keywords.some(k => t.includes(k))) return specialty
-  }
-  return ''
 }
 
 // ── Calendário ────────────────────────────────────────────────────────────────
@@ -106,6 +82,8 @@ export default function Scheduler() {
   const [specialtySearch, setSpecialtySearch] = useState('')
   const [specialtyManual, setSpecialtyManual] = useState(false)
   const [isListening, setIsListening] = useState(false)
+  const [micError, setMicError] = useState('')
+  const [detectingSpecialty, setDetectingSpecialty] = useState(false)
   const recognitionRef = useRef(null)
 
   const [form, setForm] = useState({
@@ -123,9 +101,21 @@ export default function Scheduler() {
 
   useEffect(() => {
     if (specialtyManual) return
-    const detected = detectSpecialty(form.description)
-    if (detected) setForm(f => ({ ...f, specialty: detected }))
-  }, [form.description, specialtyManual])
+    if (!form.description || form.description.length < 50) return
+
+    setDetectingSpecialty(true)
+    const timer = setTimeout(async () => {
+      try {
+        const { data } = await publicApi.post(`/scheduler/${slug}/detect`, {
+          description: form.description,
+        })
+        if (data.specialty) setForm(f => ({ ...f, specialty: data.specialty }))
+      } catch { /* silencia — usuário pode selecionar manualmente */ }
+      finally { setDetectingSpecialty(false) }
+    }, 800)
+
+    return () => { clearTimeout(timer); setDetectingSpecialty(false) }
+  }, [form.description, specialtyManual, slug])
 
   const loadSlots = useCallback(async (date) => {
     setLoadingSlots(true)
@@ -156,19 +146,29 @@ export default function Scheduler() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition
     if (!SR) return
 
+    setMicError('')
     const recognition = new SR()
     recognition.lang = 'pt-BR'
-    recognition.continuous = false
+    recognition.continuous = true
     recognition.interimResults = false
     recognitionRef.current = recognition
 
     recognition.onresult = (e) => {
-      const transcript = e.results[0][0].transcript
+      const transcript = Array.from(e.results)
+        .map(r => r[0].transcript).join(' ')
       setForm(f => ({ ...f, description: f.description ? f.description + ' ' + transcript : transcript }))
-      setIsListening(false)
     }
     recognition.onend = () => setIsListening(false)
-    recognition.onerror = () => setIsListening(false)
+    recognition.onerror = (e) => {
+      setIsListening(false)
+      const msgs = {
+        'not-allowed':  'Permissão de microfone negada. Habilite nas configurações do navegador.',
+        'no-speech':    'Nenhuma fala detectada. Tente novamente.',
+        'audio-capture':'Microfone não encontrado ou indisponível.',
+        'network':      'Erro de rede ao processar o áudio.',
+      }
+      setMicError(msgs[e.error] ?? `Erro ao usar microfone: ${e.error}`)
+    }
 
     try {
       recognition.start()
@@ -179,7 +179,7 @@ export default function Scheduler() {
   }
 
   const handleBook = async () => {
-    const specialty = form.specialty || detectSpecialty(form.description) || 'Consultoria Jurídica Geral'
+    const specialty = form.specialty || 'Consultoria Jurídica Geral'
     setBooking(true); setError('')
     try {
       const { data } = await publicApi.post(`/scheduler/${slug}/book`, {
@@ -301,12 +301,12 @@ export default function Scheduler() {
                 <li className="flex gap-2"><span className="font-bold text-navy-900">3.</span> Descreva brevemente o seu caso</li>
                 <li className="flex gap-2">
                   <span className="font-bold text-navy-900">4.</span>
-                  {consultaValor
+                  {info.hasAsaas && consultaValor
                     ? `Finalize o pagamento de ${consultaValor} para confirmar a consulta`
-                    : 'Confirme o agendamento — sem cobrança neste momento'}
+                    : 'Confirme o agendamento'}
                 </li>
               </ol>
-              {consultaValor && (
+              {info.hasAsaas && consultaValor && (
                 <p className="mt-3 text-xs text-blue-700 font-medium">
                   O pagamento é necessário para garantir o seu horário.
                 </p>
@@ -403,8 +403,15 @@ export default function Scheduler() {
                 <span>{isListening ? '⏹ Parar gravação' : '🎤 Falar o problema'}</span>
               </button>
             )}
+            {micError && <p className="mt-2 text-xs text-red-500">{micError}</p>}
 
-            {form.specialty && (
+            {detectingSpecialty && (
+              <div className="mt-4 p-3 bg-blue-50 border border-blue-100 rounded-xl">
+                <p className="text-xs text-blue-500 animate-pulse">Identificando área jurídica...</p>
+              </div>
+            )}
+
+            {!detectingSpecialty && form.specialty && (
               <div className="mt-4 p-3 bg-blue-50 border border-blue-100 rounded-xl flex items-center justify-between">
                 <div>
                   <p className="text-xs text-blue-600 font-medium">Área identificada:</p>
@@ -415,7 +422,7 @@ export default function Scheduler() {
               </div>
             )}
 
-            {!form.specialty && (
+            {!detectingSpecialty && !form.specialty && (
               <div className="mt-4">
                 <p className="text-xs text-gray-500 mb-1.5">Selecione a área manualmente:</p>
                 <input value={specialtySearch}

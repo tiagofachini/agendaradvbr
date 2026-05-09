@@ -115,7 +115,7 @@ Deno.serve(async (req) => {
 
     const lawyer = lawyerRow as { id: string; name: string; email: string; whatsapp: string }
 
-    // ── GET /scheduler/:slug ─────────────────────────────────────────────────
+    // ── GET /scheduler/:slug ───────────────────────────────────────────────
     if (req.method === 'GET' && !action) {
       return Response.json(
         {
@@ -127,6 +127,7 @@ Deno.serve(async (req) => {
           workEndTime: s.workEndTime ?? '18:00',
           highlightMessage: s.highlightMessage ?? null,
           hourlyRate: s.hourlyRate ?? null,
+          hasAsaas: !!(s.asaasApiKey),
           logoUrl: s.logoUrl ?? null,
           street: s.street ?? '',
           number: s.number ?? '',
@@ -201,6 +202,7 @@ Deno.serve(async (req) => {
             name: clientName,
             email: clientEmail,
             whatsapp: clientWhatsapp,
+            updatedAt: new Date().toISOString(),
           })
           .select('id')
           .single()
@@ -304,6 +306,55 @@ Deno.serve(async (req) => {
       }
 
       return Response.json({ appointmentId: appt.id, paymentUrl }, { status: 201, headers: cors })
+    }
+
+    // ── POST /scheduler/:slug/detect ─────────────────────────────────────────
+    if (req.method === 'POST' && action === 'detect') {
+      const { description } = await req.json()
+
+      if (!description || description.length < 30) {
+        return Response.json({ specialty: '' }, { headers: cors })
+      }
+
+      const ANTHROPIC_KEY = Deno.env.get('ANTHROPIC_API_KEY')
+      if (!ANTHROPIC_KEY) {
+        return Response.json({ specialty: '' }, { headers: cors })
+      }
+
+      const SPECIALTIES = [
+        'Direito Civil','Direito Penal','Direito Trabalhista','Direito de Família',
+        'Direito do Consumidor','Direito Tributário','Direito Previdenciário',
+        'Direito Administrativo','Direito Empresarial / Comercial','Direito Imobiliário',
+        'Direito Ambiental','Direito Digital e Tecnologia','Direito Internacional',
+        'Direito Eleitoral','Direito Constitucional','Direito Bancário',
+        'Direito de Trânsito','Direito Médico e da Saúde','Direito Agrário',
+        'Direito Sucessório / Inventário','Direito Contratual','Recuperação de Crédito','Outro',
+      ]
+
+      try {
+        const res = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'x-api-key': ANTHROPIC_KEY,
+            'anthropic-version': '2023-06-01',
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'claude-haiku-4-5-20251001',
+            max_tokens: 64,
+            messages: [{
+              role: 'user',
+              content: `Classifique o texto abaixo em UMA das áreas jurídicas listadas. Responda APENAS o nome exato da área, sem pontuação, sem explicação.\n\nÁreas:\n${SPECIALTIES.join('\n')}\n\nTexto: "${description.slice(0, 500)}"`,
+            }],
+          }),
+        })
+        const data = await res.json()
+        const raw = (data?.content?.[0]?.text ?? '').trim()
+        const matched = SPECIALTIES.find(s => s.toLowerCase() === raw.toLowerCase()) ?? ''
+        return Response.json({ specialty: matched }, { headers: cors })
+      } catch (_) {
+        return Response.json({ specialty: '' }, { headers: cors })
+      }
     }
 
     return new Response('Not Found', { status: 404, headers: cors })
