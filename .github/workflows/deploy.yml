@@ -11,6 +11,7 @@ jobs:
   deploy:
     name: Build e Deploy via FTP
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
@@ -34,8 +35,9 @@ jobs:
           FTP_PASS: ${{ secrets.FTP_PASS }}
         run: |
           python3 - <<'PYEOF'
-          import ftplib, os, ssl, sys
+          import ftplib, os, ssl, sys, socket
 
+          TIMEOUT = 60
           SKIP = {'logo.png', '.htaccess'}
 
           def upload(ftp, local_dir, remote_dir):
@@ -48,7 +50,7 @@ jobs:
                   if os.path.isfile(local_path):
                       with open(local_path, 'rb') as f:
                           try:
-                              ftp.storbinary(f'STOR {remote_path}', f)
+                              ftp.storbinary(f'STOR {remote_path}', f, blocksize=65536)
                               print(f'  ok   {remote_path}')
                           except Exception as e:
                               print(f'  FAIL {remote_path}: {e}', file=sys.stderr)
@@ -64,9 +66,10 @@ jobs:
           ctx.check_hostname = False
           ctx.verify_mode   = ssl.CERT_NONE
 
-          ftp = ftplib.FTP_TLS(context=ctx)
-          ftp.connect(os.environ['FTP_HOST'], 21)
+          ftp = ftplib.FTP_TLS(context=ctx, timeout=TIMEOUT)
+          ftp.connect(os.environ['FTP_HOST'], 21, timeout=TIMEOUT)
           ftp.login(os.environ['FTP_USER'], os.environ['FTP_PASS'])
+          ftp.set_pasv(True)
           ftp.prot_p()
 
           upload(ftp, 'client/dist', '/public_html')
