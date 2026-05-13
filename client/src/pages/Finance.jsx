@@ -46,6 +46,7 @@ export default function Finance() {
   const [tab, setTab] = useState('')
   const [data, setData] = useState(null)
   const [balance, setBalance] = useState(null)
+  const [dashLink, setDashLink] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [page, setPage] = useState(1)
@@ -59,7 +60,13 @@ export default function Finance() {
   }, [tab, page])
 
   useEffect(() => {
-    api.get('/finance/balance').then((r) => setBalance(r.data)).catch(() => {})
+    api.get('/finance/balance')
+      .then((r) => setBalance(r.data))
+      .catch(() => {})
+
+    api.get('/stripe-connect/dashboard-link')
+      .then((r) => setDashLink(r.data.url))
+      .catch(() => {})
   }, [])
 
   const handleTabChange = (v) => { setTab(v); setPage(1) }
@@ -76,15 +83,30 @@ export default function Finance() {
         <p className="text-sm text-gray-500">Controle de recebíveis e pagamentos</p>
       </div>
 
-      {/* Saldo Asaas */}
-      {balance?.balance != null && (
-        <div className="bg-navy-900 rounded-2xl p-6 mb-6 flex items-center justify-between">
-          <div>
-            <p className="text-brand-400 text-sm font-medium">Saldo disponível em conta</p>
-            <p className="text-white text-3xl font-extrabold mt-1">{fmt(balance.balance)}</p>
-            <p className="text-gray-400 text-xs mt-1">via Asaas</p>
+      {/* Saldo Stripe */}
+      {(balance?.available != null || balance?.pending != null) && (
+        <div className="bg-navy-900 rounded-2xl p-6 mb-6">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-brand-400 text-sm font-medium mb-3">Saldo na conta Stripe</p>
+              <div className="flex gap-8">
+                <div>
+                  <p className="text-white text-2xl font-extrabold">{fmt(balance.available ?? 0)}</p>
+                  <p className="text-gray-400 text-xs mt-0.5">Disponível para saque</p>
+                </div>
+                <div>
+                  <p className="text-gray-300 text-2xl font-extrabold">{fmt(balance.pending ?? 0)}</p>
+                  <p className="text-gray-400 text-xs mt-0.5">Em trânsito</p>
+                </div>
+              </div>
+            </div>
+            {dashLink && (
+              <a href={dashLink} target="_blank" rel="noopener noreferrer"
+                className="shrink-0 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors">
+                Painel Stripe →
+              </a>
+            )}
           </div>
-          <span className="text-5xl">🏦</span>
         </div>
       )}
 

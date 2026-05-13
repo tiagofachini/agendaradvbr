@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
-import { formatDistanceToNow, format, differenceInSeconds } from 'date-fns'
+import { format, differenceInSeconds } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { useNavigate } from 'react-router-dom'
 import api from '../lib/api'
 
 const PERIODS = [
@@ -62,6 +63,59 @@ function Countdown({ appointment }) {
   )
 }
 
+function OnboardingBanner() {
+  const navigate = useNavigate()
+  const [stripe, setStripe] = useState(null)
+  const [starting, setStarting] = useState(false)
+
+  useEffect(() => {
+    api.get('/settings').then(r => {
+      const f = r.data?.financial
+      if (f && !f.stripeChargesEnabled) setStripe(f)
+    }).catch(() => {})
+  }, [])
+
+  if (!stripe) return null
+
+  const handleConnect = async () => {
+    setStarting(true)
+    try {
+      const { data } = await api.post('/stripe-connect/onboard')
+      if (data.url) window.location.href = data.url
+    } catch {
+      setStarting(false)
+    }
+  }
+
+  if (stripe.stripeAccountId && !stripe.stripeChargesEnabled) {
+    return (
+      <div className="mb-4 bg-yellow-50 border border-yellow-200 rounded-2xl p-4 flex items-center justify-between gap-4">
+        <div>
+          <p className="font-semibold text-yellow-800 text-sm">Verificação Stripe pendente</p>
+          <p className="text-xs text-yellow-700 mt-0.5">Complete o cadastro para começar a receber pagamentos online.</p>
+        </div>
+        <button onClick={handleConnect} disabled={starting}
+          className="shrink-0 px-4 py-2 rounded-xl bg-yellow-600 text-white text-sm font-medium hover:bg-yellow-700 transition-colors disabled:opacity-50">
+          {starting ? '...' : 'Continuar →'}
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="mb-4 bg-navy-900 rounded-2xl p-4 flex items-center justify-between gap-4">
+      <div>
+        <p className="font-semibold text-white text-sm">Ative os pagamentos online</p>
+        <p className="text-xs text-gray-400 mt-0.5">Conecte sua conta Stripe e receba pagamentos direto no agendamento.</p>
+      </div>
+      <button onClick={() => navigate('/configuracoes')}
+        className="shrink-0 px-4 py-2 rounded-xl bg-brand-500 text-navy-900 text-sm font-semibold hover:bg-brand-400 transition-colors">
+        Configurar →
+      </button>
+    </div>
+  )
+}
+
 export default function Dashboard() {
   const [period, setPeriod] = useState('day')
   const [data, setData] = useState(null)
@@ -105,6 +159,9 @@ export default function Dashboard() {
         </div>
       ) : data ? (
         <>
+          {/* Onboarding Banner */}
+          <OnboardingBanner />
+
           {/* Countdown */}
           <div className="mb-4">
             <Countdown appointment={data.nextAppointment} />
