@@ -23,10 +23,10 @@ Deno.serve(async (req) => {
   const section = parts.at(-1) !== 'settings' ? parts.at(-1) : null
 
   try {
-    // ── GET /settings ─────────────────────────────────────────────────────────
+    // ── GET /settings ─────────────────────────────────────────────────────────────────────────
     if (req.method === 'GET') {
       const [lawyerRes, sRes] = await Promise.all([
-        sb.from('Lawyer').select('id,name,email,whatsapp,avatarUrl').maybeSingle(),
+        sb.from('Lawyer').select('id,name,email,whatsapp,avatarUrl,stripeAccountId,stripeOnboardingComplete,stripeChargesEnabled').maybeSingle(),
         sb.from('LawyerSettings').select('*').maybeSingle(),
       ])
       if (lawyerRes.error) throw lawyerRes.error
@@ -51,6 +51,7 @@ Deno.serve(async (req) => {
             schedulerSlug: s?.schedulerSlug ?? '',
             slotDuration: s?.slotDuration ?? 60,
             highlightMessage: s?.highlightMessage ?? '',
+            customMeetingUrl: s?.customMeetingUrl ?? '',
           },
           calendar: {
             workDays: s?.workDays ?? [1, 2, 3, 4, 5],
@@ -59,9 +60,9 @@ Deno.serve(async (req) => {
             hourlyRate: s?.hourlyRate ?? '',
           },
           financial: {
-            asaasApiKey: s?.asaasApiKey
-              ? '••••••••' + (s.asaasApiKey as string).slice(-4)
-              : '',
+            stripeAccountId: l?.stripeAccountId ?? null,
+            stripeOnboardingComplete: l?.stripeOnboardingComplete ?? false,
+            stripeChargesEnabled: l?.stripeChargesEnabled ?? false,
           },
           alerts: {
             newBookingByEmail: s?.newBookingByEmail ?? true,
@@ -74,9 +75,8 @@ Deno.serve(async (req) => {
       )
     }
 
-    // ── PUT handlers ──────────────────────────────────────────────────────────
+    // ── PUT handlers ────────────────────────────────────────────────────────────────────────────────────────
     if (req.method === 'PUT') {
-      // Get lawyer id and existing settings id (or generate new one)
       const { data: lawyer } = await sb.from('Lawyer').select('id').maybeSingle()
       if (!lawyer?.id) return Response.json({ error: 'Perfil não encontrado' }, { status: 404, headers: cors })
       const lawyerId = lawyer.id
@@ -90,7 +90,6 @@ Deno.serve(async (req) => {
         return Response.json({ ok: true }, { headers: cors })
       }
 
-      // For all LawyerSettings sections: fetch existing row id or generate a new UUID
       const { data: existing } = await sb.from('LawyerSettings').select('id').eq('lawyerId', lawyerId).maybeSingle()
       const settingsId = existing?.id ?? crypto.randomUUID()
 
@@ -122,13 +121,6 @@ Deno.serve(async (req) => {
       if (section === 'calendar') {
         const body = await req.json()
         const error = await upsertSettings(body)
-        if (error) throw error
-        return Response.json({ ok: true }, { headers: cors })
-      }
-
-      if (section === 'financial') {
-        const { asaasApiKey } = await req.json()
-        const error = await upsertSettings({ asaasApiKey })
         if (error) throw error
         return Response.json({ ok: true }, { headers: cors })
       }

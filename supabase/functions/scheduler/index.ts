@@ -6,13 +6,12 @@ const cors = {
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 }
 
-const ASAAS_URL = 'https://api.asaas.com/v3'
 const RESEND_URL = 'https://api.resend.com/emails'
 const FROM_EMAIL = 'AgendarAdv <notificacoes@agendar.adv.br>'
 
 function clientEmailHtml(p: {
   lawyerName: string; dateStr: string; timeStr: string
-  specialty: string; address: string; paymentUrl: string | null; meetingLink: string | null
+  specialty: string; address: string; meetingLink: string | null
 }) {
   const locationRow = p.meetingLink
     ? `<tr><td style="color:#6b7280;padding:6px 0;width:40%">Reunião online</td><td style="font-weight:600"><a href="${p.meetingLink}" style="color:#2563eb">${p.meetingLink}</a></td></tr>`
@@ -33,13 +32,7 @@ function clientEmailHtml(p: {
       ${locationRow}
     </table>
   </div>
-  ${p.paymentUrl
-    ? `<p>Para confirmar o agendamento, realize o pagamento:</p>
-       <div style="text-align:center;margin:24px 0">
-         <a href="${p.paymentUrl}" style="background:#1a1a2e;color:white;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:bold;font-size:16px">Pagar agora</a>
-       </div>`
-    : `<p style="color:#16a34a;font-weight:600">✓ Agendamento recebido! Você será notificado por email após a confirmação do pagamento.</p>`
-  }
+  <p style="color:#16a34a;font-weight:600">&#10003; Agendamento recebido! Você será notificado por email após a confirmação do pagamento.</p>
   <p style="color:#9ca3af;font-size:12px;margin-top:32px;border-top:1px solid #e5e7eb;padding-top:16px">Enviado automaticamente pelo AgendarAdv. Não responda este email.</p>
 </body></html>`
 }
@@ -114,7 +107,7 @@ Deno.serve(async (req) => {
 
     const { data: lawyerRow } = await sb
       .from('Lawyer')
-      .select('id,name,email,whatsapp')
+      .select('id,name,email,whatsapp,stripeAccountId,stripeChargesEnabled')
       .eq('id', s.lawyerId)
       .maybeSingle()
 
@@ -122,10 +115,16 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Agenda não encontrada' }, { status: 404, headers: cors })
     }
 
-    const lawyer = lawyerRow as { id: string; name: string; email: string; whatsapp: string }
+    const lawyer = lawyerRow as {
+      id: string; name: string; email: string; whatsapp: string
+      stripeAccountId: string | null; stripeChargesEnabled: boolean
+    }
 
-    // ── GET /scheduler/:slug ───────────────────────────────────────────────
+    // ── GET /scheduler/:slug ─────────────────────────────────────────────────────────
     if (req.method === 'GET' && !action) {
+      const hourlyRate = parseFloat(s.hourlyRate ?? '0')
+      const hasStripe = !!(lawyer.stripeChargesEnabled && lawyer.stripeAccountId && hourlyRate > 0)
+
       return Response.json(
         {
           lawyerName: lawyer.name,
@@ -136,7 +135,7 @@ Deno.serve(async (req) => {
           workEndTime: s.workEndTime ?? '18:00',
           highlightMessage: s.highlightMessage ?? null,
           hourlyRate: s.hourlyRate ?? null,
-          hasAsaas: !!(s.asaasApiKey),
+          hasStripe,
           logoUrl: s.logoUrl ?? null,
           street: s.street ?? '',
           number: s.number ?? '',
@@ -147,7 +146,7 @@ Deno.serve(async (req) => {
       )
     }
 
-    // ── GET /scheduler/:slug/slots ───────────────────────────────────────────
+    // ── GET /scheduler/:slug/slots ─────────────────────────────────────────────────────
     if (req.method === 'GET' && action === 'slots') {
       const date = url.searchParams.get('date')
       if (!date) return Response.json({ error: 'date required' }, { status: 400, headers: cors })
@@ -183,16 +182,11 @@ Deno.serve(async (req) => {
       return Response.json({ slots }, { headers: cors })
     }
 
-    // ── POST /scheduler/:slug/book ───────────────────────────────────────────
+    // ── POST /scheduler/:slug/book — free bookings only ─────────────────────────────
+    // Paid bookings go through /stripe-connect/checkout
     if (req.method === 'POST' && action === 'book') {
       const body = await req.json()
-      const {
-        clientName, clientEmail, clientWhatsapp, specialty, description,
-        selectedDate, selectedSlot,
-        billingType = 'UNDEFINED',
-        creditCard: cc,
-        creditCardHolderInfo: ccHolder,
-      } = body
+      const { clientName, clientEmail, clientWhatsapp, specialty, description, selectedDate, selectedSlot } = body
 
       if (!clientName || !clientEmail || !specialty || !selectedDate || !selectedSlot) {
         return Response.json({ error: 'Campos obrigatórios ausentes' }, { status: 400, headers: cors })
@@ -227,6 +221,10 @@ Deno.serve(async (req) => {
 
       const apptDate = new Date(`${selectedDate}T${selectedSlot}:00-03:00`).toISOString()
       const apptId = crypto.randomUUID()
+      const hasAddress = !!(s.street && s.city)
+      const meetingLink = hasAddress
+        ? null
+        : (s.customMeetingUrl?.trim() || `https://meet.jit.si/agendaradv${apptId.replace(/-/g, '')}`)
 
       const { error: apptErr } = await sb
         .from('Appointment')
@@ -241,110 +239,11 @@ Deno.serve(async (req) => {
           description,
           date: apptDate,
           duration: s.slotDuration ?? 60,
-          status: 'PENDING_PAYMENT',
+          status: 'CONFIRMED',
+          meetingLink,
           updatedAt: new Date().toISOString(),
         })
       if (apptErr) throw apptErr
-
-      const hasAddress = !!(s.street && s.city)
-      const meetingLink = hasAddress ? null : `https://meet.jit.si/agendaradv${apptId.replace(/-/g, '')}`
-
-      let paymentUrl: string | null = null
-      let pixQrCode: string | null = null
-      let pixCopyCPaste: string | null = null
-      let cardApproved = false
-
-      if (s.asaasApiKey) {
-        const hourlyRate = parseFloat(s.hourlyRate ?? '0')
-        const amount = hourlyRate > 0 ? (hourlyRate * (s.slotDuration ?? 60)) / 60 : 0
-
-        if (amount > 0) {
-          try {
-            const cRes = await fetch(
-              `${ASAAS_URL}/customers?email=${encodeURIComponent(clientEmail)}`,
-              { headers: { access_token: s.asaasApiKey } }
-            )
-            const cData = await cRes.json()
-            let customerId: string = cData.data?.[0]?.id
-            if (!customerId) {
-              const createRes = await fetch(`${ASAAS_URL}/customers`, {
-                method: 'POST',
-                headers: { access_token: s.asaasApiKey, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: clientName, email: clientEmail, mobilePhone: clientWhatsapp }),
-              })
-              const created = await createRes.json()
-              customerId = created.id
-            }
-
-            const due = new Date(apptDate)
-            due.setDate(due.getDate() - 1)
-            const minDue = new Date()
-            if (due < minDue) due.setTime(minDue.getTime())
-            const dueDate = due.toISOString().slice(0, 10)
-
-            const chargeBody: Record<string, unknown> = {
-              customer: customerId,
-              billingType,
-              value: amount,
-              dueDate,
-              description: `Consulta: ${specialty}`,
-              externalReference: apptId,
-            }
-
-            if (billingType === 'CREDIT_CARD' && cc) {
-              chargeBody.creditCard = cc
-              chargeBody.creditCardHolderInfo = ccHolder
-            }
-
-            const chargeRes = await fetch(`${ASAAS_URL}/payments`, {
-              method: 'POST',
-              headers: { access_token: s.asaasApiKey, 'Content-Type': 'application/json' },
-              body: JSON.stringify(chargeBody),
-            })
-            const charge = await chargeRes.json()
-
-            if (!charge.id) {
-              const msg = charge.errors?.[0]?.description ?? charge.error ?? 'Erro ao processar pagamento'
-              throw new Error(msg)
-            }
-
-            if (billingType === 'PIX') {
-              const qrRes = await fetch(`${ASAAS_URL}/payments/${charge.id}/pixQrCode`, {
-                headers: { access_token: s.asaasApiKey },
-              })
-              const qrData = await qrRes.json()
-              pixQrCode = qrData.encodedImage ?? null
-              pixCopyCPaste = qrData.payload ?? null
-              paymentUrl = charge.invoiceUrl ?? null
-            } else {
-              paymentUrl = charge.invoiceUrl ?? charge.bankSlipUrl ?? null
-            }
-
-            if (charge.status === 'RECEIVED' || charge.status === 'CONFIRMED') {
-              cardApproved = true
-              await sb.from('Appointment').update({ status: 'CONFIRMED' }).eq('id', apptId)
-            }
-
-            if (charge.id) {
-              await sb.from('Payment').insert({
-                lawyerId: lawyer.id, clientId, appointmentId: apptId,
-                amount, status: cardApproved ? 'PAID' : 'PENDING',
-                asaasId: charge.id, asaasUrl: paymentUrl,
-                dueDate: new Date(dueDate).toISOString(),
-              })
-            }
-          } catch (err) {
-            if (billingType === 'CREDIT_CARD') {
-              await sb.from('Appointment').update({ status: 'CANCELLED' }).eq('id', apptId)
-              throw err
-            }
-          }
-        } else {
-          await sb.from('Appointment').update({ status: 'CONFIRMED' }).eq('id', apptId)
-        }
-      } else {
-        await sb.from('Appointment').update({ status: 'CONFIRMED' }).eq('id', apptId)
-      }
 
       const RESEND_KEY = Deno.env.get('RESEND_API_KEY_AGENDAR')
       if (RESEND_KEY) {
@@ -359,8 +258,8 @@ Deno.serve(async (req) => {
           const address = [s.street, s.number, s.city, s.state].filter(Boolean).join(', ')
           await sendEmail(
             RESEND_KEY, clientEmail,
-            `Agendamento recebido — ${lawyer.name}`,
-            clientEmailHtml({ lawyerName: lawyer.name, dateStr, timeStr, specialty, address, paymentUrl, meetingLink })
+            `Agendamento confirmado — ${lawyer.name}`,
+            clientEmailHtml({ lawyerName: lawyer.name, dateStr, timeStr, specialty, address, meetingLink })
           )
           if (s.newBookingByEmail !== false && lawyer.email) {
             await sendEmail(
@@ -373,12 +272,12 @@ Deno.serve(async (req) => {
       }
 
       return Response.json(
-        { appointmentId: apptId, paymentUrl, pixQrCode, pixCopyCPaste, cardApproved, billingType, meetingLink },
+        { appointmentId: apptId, meetingLink },
         { status: 201, headers: cors }
       )
     }
 
-    // ── POST /scheduler/:slug/detect ─────────────────────────────────────────
+    // ── POST /scheduler/:slug/detect ─────────────────────────────────────────────────────────────────
     if (req.method === 'POST' && action === 'detect') {
       const { description } = await req.json()
 
