@@ -23,7 +23,6 @@ Deno.serve(async (req) => {
   const section = parts.at(-1) !== 'settings' ? parts.at(-1) : null
 
   try {
-    // ── GET /settings ─────────────────────────────────────────────────────────────────────────
     if (req.method === 'GET') {
       const [lawyerRes, sRes] = await Promise.all([
         sb.from('Lawyer').select('id,name,email,whatsapp,avatarUrl,stripeAccountId,stripeOnboardingComplete,stripeChargesEnabled').maybeSingle(),
@@ -75,7 +74,6 @@ Deno.serve(async (req) => {
       )
     }
 
-    // ── PUT handlers ────────────────────────────────────────────────────────────────────────────────────────
     if (req.method === 'PUT') {
       const { data: lawyer } = await sb.from('Lawyer').select('id').maybeSingle()
       if (!lawyer?.id) return Response.json({ error: 'Perfil não encontrado' }, { status: 404, headers: cors })

@@ -127,7 +127,6 @@ Deno.serve(async (req) => {
         await sb.from('Appointment').update({ status: 'CONFIRMED' })
           .eq('id', appointmentId)
 
-        // Email de confirmação enviado somente após pagamento aprovado
         await sendConfirmationEmail(sb, appointmentId)
         break
       }

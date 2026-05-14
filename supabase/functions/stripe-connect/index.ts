@@ -14,7 +14,6 @@ function stripe() {
   return new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, { apiVersion: '2023-10-16' as const })
 }
 
-// ── Public: create PaymentIntent + appointment ────────────────────────────────────────────
 async function handleCheckout(req: Request): Promise<Response> {
   const body = await req.json()
   const { slug, clientName, clientEmail, clientWhatsapp, specialty, description, selectedDate, selectedSlot } = body
@@ -55,7 +54,6 @@ async function handleCheckout(req: Request): Promise<Response> {
   const amountCents = Math.round(amountBRL * 100)
   const platformFeeCents = Math.max(1, Math.round(amountCents * PLATFORM_FEE_RATE))
 
-  // Upsert client
   const { data: existing } = await sb
     .from('Client')
     .select('id')
@@ -76,7 +74,6 @@ async function handleCheckout(req: Request): Promise<Response> {
     clientId = nc.id
   }
 
-  // Create appointment
   const apptDate = new Date(`${selectedDate}T${selectedSlot}:00-03:00`).toISOString()
   const apptId = crypto.randomUUID()
   const hasAddress = !!(s.street && s.city)
@@ -92,7 +89,6 @@ async function handleCheckout(req: Request): Promise<Response> {
   })
   if (apptErr) throw apptErr
 
-  // Create Stripe PaymentIntent
   const st = stripe()
   const paymentIntent = await st.paymentIntents.create({
     amount: amountCents,
@@ -104,7 +100,6 @@ async function handleCheckout(req: Request): Promise<Response> {
     description: `Consulta: ${specialty} — ${lawyer.name}`,
   })
 
-  // Save Payment record
   await sb.from('Payment').insert({
     lawyerId: lawyer.id, clientId, appointmentId: apptId,
     amount: amountBRL, status: 'PENDING',
@@ -118,7 +113,6 @@ async function handleCheckout(req: Request): Promise<Response> {
   )
 }
 
-// ── Authenticated handlers ────────────────────────────────────────────────────────────────────────────
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: cors })
 
@@ -126,7 +120,6 @@ Deno.serve(async (req) => {
   const parts = url.pathname.split('/').filter(Boolean)
   const action = parts.at(-1)
 
-  // Public endpoint — no auth required
   if (req.method === 'POST' && action === 'checkout') {
     try { return await handleCheckout(req) }
     catch (err) { return Response.json({ error: err.message }, { status: 500, headers: cors }) }
@@ -151,7 +144,6 @@ Deno.serve(async (req) => {
 
     const st = stripe()
 
-    // ── POST /stripe-connect/onboard ──────────────────────────────────────────────────────────────────
     if (req.method === 'POST' && action === 'onboard') {
       let accountId = lawyer.stripeAccountId
 
@@ -183,7 +175,6 @@ Deno.serve(async (req) => {
       return Response.json({ url: accountLink.url }, { headers: cors })
     }
 
-    // ── GET /stripe-connect/refresh ──────────────────────────────────────────────────────────────────────
     if (req.method === 'GET' && action === 'refresh') {
       if (!lawyer.stripeAccountId) {
         return Response.json({ error: 'Conta Stripe não criada' }, { status: 400, headers: cors })
@@ -199,7 +190,6 @@ Deno.serve(async (req) => {
       return Response.json({ url: accountLink.url }, { headers: cors })
     }
 
-    // ── GET /stripe-connect/balance ─────────────────────────────────────────────────────────────────────
     if (req.method === 'GET' && action === 'balance') {
       if (!lawyer.stripeAccountId || !lawyer.stripeChargesEnabled) {
         return Response.json({ available: null, pending: null }, { headers: cors })
@@ -215,7 +205,6 @@ Deno.serve(async (req) => {
       )
     }
 
-    // ── GET /stripe-connect/transactions ────────────────────────────────────────────────────────────────
     if (req.method === 'GET' && action === 'transactions') {
       const page = parseInt(url.searchParams.get('page') ?? '1')
       const pageSize = 20
@@ -260,7 +249,6 @@ Deno.serve(async (req) => {
       )
     }
 
-    // ── GET /stripe-connect/dashboard-link ─────────────────────────────────────────────────────────────────────
     if (req.method === 'GET' && action === 'dashboard-link') {
       if (!lawyer.stripeAccountId) {
         return Response.json({ error: 'Conta Stripe não configurada' }, { status: 400, headers: cors })

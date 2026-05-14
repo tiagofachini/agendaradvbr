@@ -32,7 +32,7 @@ function clientEmailHtml(p: {
       ${locationRow}
     </table>
   </div>
-  <p style="color:#16a34a;font-weight:600">&#10003; Agendamento recebido! Você será notificado por email após a confirmação do pagamento.</p>
+  <p style="color:#16a34a;font-weight:600">✓ Agendamento recebido! Você será notificado por email após a confirmação do pagamento.</p>
   <p style="color:#9ca3af;font-size:12px;margin-top:32px;border-top:1px solid #e5e7eb;padding-top:16px">Enviado automaticamente pelo AgendarAdv. Não responda este email.</p>
 </body></html>`
 }
@@ -120,7 +120,6 @@ Deno.serve(async (req) => {
       stripeAccountId: string | null; stripeChargesEnabled: boolean
     }
 
-    // ── GET /scheduler/:slug ─────────────────────────────────────────────────────────
     if (req.method === 'GET' && !action) {
       const hourlyRate = parseFloat(s.hourlyRate ?? '0')
       const hasStripe = !!(lawyer.stripeChargesEnabled && lawyer.stripeAccountId && hourlyRate > 0)
@@ -146,7 +145,6 @@ Deno.serve(async (req) => {
       )
     }
 
-    // ── GET /scheduler/:slug/slots ─────────────────────────────────────────────────────
     if (req.method === 'GET' && action === 'slots') {
       const date = url.searchParams.get('date')
       if (!date) return Response.json({ error: 'date required' }, { status: 400, headers: cors })
@@ -182,8 +180,6 @@ Deno.serve(async (req) => {
       return Response.json({ slots }, { headers: cors })
     }
 
-    // ── POST /scheduler/:slug/book — free bookings only ─────────────────────────────
-    // Paid bookings go through /stripe-connect/checkout
     if (req.method === 'POST' && action === 'book') {
       const body = await req.json()
       const { clientName, clientEmail, clientWhatsapp, specialty, description, selectedDate, selectedSlot } = body
@@ -258,7 +254,7 @@ Deno.serve(async (req) => {
           const address = [s.street, s.number, s.city, s.state].filter(Boolean).join(', ')
           await sendEmail(
             RESEND_KEY, clientEmail,
-            `Agendamento confirmado — ${lawyer.name}`,
+            `Agendamento recebido — ${lawyer.name}`,
             clientEmailHtml({ lawyerName: lawyer.name, dateStr, timeStr, specialty, address, meetingLink })
           )
           if (s.newBookingByEmail !== false && lawyer.email) {
@@ -277,7 +273,6 @@ Deno.serve(async (req) => {
       )
     }
 
-    // ── POST /scheduler/:slug/detect ─────────────────────────────────────────────────────────────────
     if (req.method === 'POST' && action === 'detect') {
       const { description } = await req.json()
 
