@@ -78,7 +78,26 @@ const inputCls = 'w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm f
 
 function LogoUpload({ currentUrl, lawyerId, onChange }) {
   const [uploading, setUploading] = useState(false)
+  const [removing, setRemoving] = useState(false)
   const [err, setErr] = useState('')
+
+  const removeAll = async () => {
+    const { data: files } = await supabase.storage.from('logos').list(lawyerId)
+    if (files?.length) {
+      await supabase.storage.from('logos').remove(files.map(f => `${lawyerId}/${f.name}`))
+    }
+  }
+
+  const handleRemove = async () => {
+    setRemoving(true); setErr('')
+    try {
+      await removeAll()
+      onChange('')
+    } catch (e) {
+      setErr(e.message || 'Erro ao remover imagem.')
+    }
+    setRemoving(false)
+  }
 
   const handleFile = async (e) => {
     const file = e.target.files?.[0]
@@ -86,19 +105,25 @@ function LogoUpload({ currentUrl, lawyerId, onChange }) {
     if (file.size > 5 * 1024 * 1024) { setErr('Arquivo maior que 5MB'); return }
     if (!file.type.startsWith('image/')) { setErr('Envie um arquivo de imagem (PNG, JPG ou SVG)'); return }
     setUploading(true); setErr('')
-    const ext = file.name.split('.').pop()
-    const path = `${lawyerId}/logo.${ext}`
-    const { error } = await supabase.storage.from('logos').upload(path, file, { upsert: true })
+    try { await removeAll() } catch { /* ignora */ }
+    const path = `${lawyerId}/logo`
+    const { error } = await supabase.storage.from('logos').upload(path, file, { upsert: true, contentType: file.type })
     if (error) { setErr(error.message); setUploading(false); return }
     const { data: { publicUrl } } = supabase.storage.from('logos').getPublicUrl(path)
-    onChange(publicUrl)
+    onChange(`${publicUrl}?t=${Date.now()}`)
     setUploading(false)
   }
 
   return (
     <div className="space-y-3">
       {currentUrl && (
-        <img src={currentUrl} alt="Logo" className="h-20 rounded-xl object-contain border border-gray-100 bg-gray-50 p-2" />
+        <div className="flex items-start gap-3">
+          <img src={currentUrl} alt="Logo" className="h-20 rounded-xl object-contain border border-gray-100 bg-gray-50 p-2" />
+          <button type="button" onClick={handleRemove} disabled={removing}
+            className="text-xs text-red-500 hover:text-red-700 font-medium disabled:opacity-50 transition-colors mt-1">
+            {removing ? 'Removendo...' : 'Remover'}
+          </button>
+        </div>
       )}
       <label className="block border-2 border-dashed border-gray-200 rounded-xl p-5 text-center cursor-pointer hover:border-navy-700 transition-colors">
         <input type="file" accept="image/*" className="hidden" onChange={handleFile} disabled={uploading} />
@@ -114,6 +139,21 @@ function LogoUpload({ currentUrl, lawyerId, onChange }) {
         )}
       </label>
       {err && <p className="text-red-500 text-xs">{err}</p>}
+    </div>
+  )
+}
+
+function ColorPicker({ label, value, onChange }) {
+  const pickerVal = /^#[0-9a-fA-F]{6}$/.test(value) ? value : '#000000'
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+      <div className="flex items-center gap-2">
+        <input type="color" value={pickerVal} onChange={e => onChange(e.target.value)}
+          className="w-10 h-10 rounded-lg border border-gray-300 cursor-pointer p-0.5 flex-shrink-0" />
+        <input className={inputCls} value={value} onChange={e => onChange(e.target.value)}
+          placeholder="#1a1a2e" maxLength={7} />
+      </div>
     </div>
   )
 }
@@ -170,6 +210,7 @@ function OfficeSection({ data, onSaved }) {
     complement: o.complement || '', neighborhood: o.neighborhood || '',
     city: o.city || '', state: o.state || '', logoUrl: o.logoUrl || '',
     specialties: o.specialties || [],
+    brandColor1: o.brandColor1 || '', brandColor2: o.brandColor2 || '',
   })
   const [loading, setLoading] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -184,6 +225,7 @@ function OfficeSection({ data, onSaved }) {
       complement: o.complement || '', neighborhood: o.neighborhood || '',
       city: o.city || '', state: o.state || '', logoUrl: o.logoUrl || '',
       specialties: o.specialties || [],
+      brandColor1: o.brandColor1 || '', brandColor2: o.brandColor2 || '',
     })
   }, [data])
 
@@ -199,10 +241,11 @@ function OfficeSection({ data, onSaved }) {
   }
 
   const toggleSpecialty = (s) =>
-    setForm(f => ({
-      ...f,
-      specialties: f.specialties.includes(s) ? f.specialties.filter(x => x !== s) : [...f.specialties, s],
-    }))
+    setForm(f => {
+      if (f.specialties.includes(s)) return { ...f, specialties: f.specialties.filter(x => x !== s) }
+      if (f.specialties.length >= 5) return f
+      return { ...f, specialties: [...f.specialties, s] }
+    })
 
   const save = async (e) => {
     e.preventDefault(); setLoading(true); setSaved(false); setError('')
@@ -256,17 +299,40 @@ function OfficeSection({ data, onSaved }) {
         </Field>
       </div>
       <Field label="Especialidades do escritório">
-        <input className={inputCls + ' mb-2'} placeholder="Buscar especialidade..." value={specSearch} onChange={e => setSpecSearch(e.target.value)} />
+        <div className="flex items-center justify-between mb-2">
+          <input className={inputCls + ' flex-1 mr-3'} placeholder="Buscar especialidade..." value={specSearch} onChange={e => setSpecSearch(e.target.value)} />
+          <span className={`text-xs font-medium flex-shrink-0 ${form.specialties.length >= 5 ? 'text-red-500' : 'text-gray-400'}`}>
+            {form.specialties.length}/5
+          </span>
+        </div>
+        {form.specialties.length >= 5 && (
+          <p className="text-xs text-red-500 mb-2">Limite de 5 especialidades atingido. Remova uma para adicionar outra.</p>
+        )}
         <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto">
-          {LEGAL_SPECIALTIES.filter(s => s.toLowerCase().includes(specSearch.toLowerCase())).map(s => (
-            <button type="button" key={s} onClick={() => toggleSpecialty(s)}
-              className={`text-xs px-3 py-1.5 rounded-full border-2 font-medium transition-colors
-                ${form.specialties.includes(s) ? 'bg-navy-900 border-navy-900 text-white' : 'border-gray-200 text-gray-600 hover:border-navy-900'}`}>
-              {s}
-            </button>
-          ))}
+          {LEGAL_SPECIALTIES.filter(s => s.toLowerCase().includes(specSearch.toLowerCase())).map(s => {
+            const selected = form.specialties.includes(s)
+            const disabled = !selected && form.specialties.length >= 5
+            return (
+              <button type="button" key={s} onClick={() => toggleSpecialty(s)} disabled={disabled}
+                className={`text-xs px-3 py-1.5 rounded-full border-2 font-medium transition-colors
+                  ${selected ? 'bg-navy-900 border-navy-900 text-white' : disabled ? 'border-gray-100 text-gray-300 cursor-not-allowed' : 'border-gray-200 text-gray-600 hover:border-navy-900'}`}>
+                {s}
+              </button>
+            )
+          })}
         </div>
       </Field>
+      <div className="grid grid-cols-2 gap-4">
+        <ColorPicker label="Cor principal"
+          value={form.brandColor1}
+          onChange={v => setForm(f => ({ ...f, brandColor1: v }))} />
+        <ColorPicker label="Cor de destaque"
+          value={form.brandColor2}
+          onChange={v => setForm(f => ({ ...f, brandColor2: v }))} />
+      </div>
+      <p className="text-xs text-gray-400 -mt-2">
+        Estas cores personalizam os botões e elementos da sua página de agendamento.
+      </p>
     </Section>
   )
 }

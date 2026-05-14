@@ -140,6 +140,8 @@ Deno.serve(async (req) => {
           number: s.number ?? '',
           city: s.city ?? '',
           state: s.state ?? '',
+          brandColor1: s.brandColor1 ?? null,
+          brandColor2: s.brandColor2 ?? null,
         },
         { headers: cors }
       )

@@ -23,7 +23,7 @@ function maskPhone(raw) {
   return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`
 }
 
-function Calendar({ workDays, selectedDate, onSelect, currentMonth, onMonthChange }) {
+function Calendar({ workDays, selectedDate, onSelect, currentMonth, onMonthChange, brand1, brand2 }) {
   const today = startOfDay(new Date())
   const days = eachDayOfInterval({ start: startOfMonth(currentMonth), end: endOfMonth(currentMonth) })
   const startPad = getDay(days[0])
@@ -31,11 +31,11 @@ function Calendar({ workDays, selectedDate, onSelect, currentMonth, onMonthChang
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <button onClick={() => onMonthChange(subMonths(currentMonth, 1))} className="p-2 rounded-lg hover:bg-gray-100 text-navy-900">‹</button>
-        <span className="font-semibold text-navy-900 capitalize">
+        <button onClick={() => onMonthChange(subMonths(currentMonth, 1))} className="p-2 rounded-lg hover:bg-gray-100" style={{ color: brand1 }}>‹</button>
+        <span className="font-semibold capitalize" style={{ color: brand1 }}>
           {format(currentMonth, 'MMMM yyyy', { locale: ptBR })}
         </span>
-        <button onClick={() => onMonthChange(addMonths(currentMonth, 1))} className="p-2 rounded-lg hover:bg-gray-100 text-navy-900">›</button>
+        <button onClick={() => onMonthChange(addMonths(currentMonth, 1))} className="p-2 rounded-lg hover:bg-gray-100" style={{ color: brand1 }}>›</button>
       </div>
       <div className="grid grid-cols-7 mb-2">
         {WEEK_DAYS.map((d) => (
@@ -53,11 +53,14 @@ function Calendar({ workDays, selectedDate, onSelect, currentMonth, onMonthChang
             <button key={day.toISOString()} disabled={disabled} onClick={() => onSelect(day)}
               className={[
                 'h-9 w-full rounded-lg text-sm font-medium transition-colors',
-                disabled ? 'text-gray-300 cursor-default' : 'cursor-pointer hover:bg-navy-50',
-                isSelected ? 'bg-navy-900 text-white hover:bg-navy-800' : '',
-                isToday(day) && !isSelected ? 'border border-brand-500 text-navy-900' : '',
+                disabled ? 'text-gray-300 cursor-default' : 'cursor-pointer hover:bg-gray-100',
                 !disabled && !isSelected ? 'text-gray-800' : '',
-              ].join(' ')}>
+              ].join(' ')}
+              style={
+                isSelected ? { backgroundColor: brand1, color: '#fff' }
+                : isToday(day) && !isSelected ? { border: `1px solid ${brand2}`, color: brand1 }
+                : {}
+              }>
               {format(day, 'd')}
             </button>
           )
@@ -67,7 +70,7 @@ function Calendar({ workDays, selectedDate, onSelect, currentMonth, onMonthChang
   )
 }
 
-function StripePaymentForm({ onSuccess, onError, consultaValor }) {
+function StripePaymentForm({ onSuccess, onError, consultaValor, brand1 }) {
   const stripe = useStripe()
   const elements = useElements()
   const [paying, setPaying] = useState(false)
@@ -97,7 +100,8 @@ function StripePaymentForm({ onSuccess, onError, consultaValor }) {
       <PaymentElement options={{ layout: 'tabs' }} />
       {err && <p className="text-red-500 text-sm">{err}</p>}
       <button type="submit" disabled={!stripe || paying}
-        className="w-full py-3.5 rounded-xl bg-navy-900 text-white font-bold disabled:opacity-50 hover:bg-navy-800 transition-colors">
+        className="w-full py-3.5 rounded-xl text-white font-bold disabled:opacity-50 transition-colors"
+        style={{ backgroundColor: brand1 }}>
         {paying ? 'Processando...' : `Pagar ${consultaValor ?? ''} →`}
       </button>
     </form>
@@ -293,6 +297,9 @@ export default function Scheduler() {
     </div>
   )
 
+  const brand1 = /^#[0-9a-fA-F]{6}$/.test(info.brandColor1) ? info.brandColor1 : '#1a1a2e'
+  const brand2 = /^#[0-9a-fA-F]{6}$/.test(info.brandColor2) ? info.brandColor2 : '#f5c842'
+
   const consultaValor = info.hourlyRate
     ? `R$ ${((parseFloat(info.hourlyRate) / 60) * (info.slotDuration ?? 60)).toFixed(2).replace('.', ',')}`
     : null
@@ -312,7 +319,7 @@ export default function Scheduler() {
   return (
     <div className="min-h-screen bg-gray-50">
 
-      <div className="bg-navy-900 px-6 py-8 text-center">
+      <div className="px-6 py-8 text-center" style={{ backgroundColor: brand1 }}>
         {info.logoUrl && (
           <img src={info.logoUrl} alt="logo" className="h-16 mx-auto mb-4 rounded-xl object-contain bg-white/10 p-1" />
         )}
@@ -350,14 +357,22 @@ export default function Scheduler() {
           <div className="flex items-center justify-center gap-0 max-w-sm mx-auto">
             {STEPS.map((label, i) => (
               <div key={label} className="flex items-center">
-                <div className={`flex items-center gap-1.5 ${i <= step ? 'text-navy-900' : 'text-gray-300'}`}>
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold
-                    ${i < step ? 'bg-navy-900 text-white' : i === step ? 'border-2 border-navy-900 text-navy-900' : 'border-2 border-gray-200 text-gray-300'}`}>
+                <div className={`flex items-center gap-1.5 ${i <= step ? '' : 'text-gray-300'}`}
+                  style={i <= step ? { color: brand1 } : {}}>
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold`}
+                    style={
+                      i < step ? { backgroundColor: brand1, color: '#fff', border: 'none' }
+                      : i === step ? { border: `2px solid ${brand1}`, color: brand1 }
+                      : { border: '2px solid #e5e7eb', color: '#d1d5db' }
+                    }>
                     {i < step ? '✓' : i + 1}
                   </div>
                   <span className="text-xs font-medium hidden sm:block">{label}</span>
                 </div>
-                {i < STEPS.length - 1 && <div className={`w-8 h-0.5 mx-2 ${i < step ? 'bg-navy-900' : 'bg-gray-200'}`} />}
+                {i < STEPS.length - 1 && (
+                  <div className="w-8 h-0.5 mx-2"
+                    style={{ backgroundColor: i < step ? brand1 : '#e5e7eb' }} />
+                )}
               </div>
             ))}
           </div>
@@ -391,7 +406,7 @@ export default function Scheduler() {
             <div className="bg-white rounded-2xl shadow-sm p-6">
               <h2 className="font-bold text-navy-900 mb-5 text-lg">Escolha a data e o horário</h2>
               <Calendar workDays={info.workDays} selectedDate={selectedDate} onSelect={handleDateSelect}
-                currentMonth={currentMonth} onMonthChange={setCurrentMonth} />
+                currentMonth={currentMonth} onMonthChange={setCurrentMonth} brand1={brand1} brand2={brand2} />
               {selectedDate && (
                 <div className="mt-6">
                   <p className="text-sm font-medium text-gray-700 mb-3">
@@ -405,8 +420,10 @@ export default function Scheduler() {
                     <div className="grid grid-cols-3 gap-2">
                       {slots.map((slot) => (
                         <button key={slot} onClick={() => setSelectedSlot(slot)}
-                          className={`py-2.5 rounded-xl text-sm font-semibold border-2 transition-colors
-                            ${selectedSlot === slot ? 'bg-navy-900 border-navy-900 text-white' : 'border-gray-200 text-navy-900 hover:border-navy-900'}`}>
+                          className="py-2.5 rounded-xl text-sm font-semibold border-2 transition-colors"
+                          style={selectedSlot === slot
+                            ? { backgroundColor: brand1, borderColor: brand1, color: '#fff' }
+                            : {}}>
                           {slot}
                         </button>
                       ))}
@@ -415,7 +432,8 @@ export default function Scheduler() {
                 </div>
               )}
               <button disabled={!selectedDate || !selectedSlot} onClick={() => setStep(1)}
-                className="mt-6 w-full py-3.5 rounded-xl bg-navy-900 text-white font-bold disabled:opacity-40 hover:bg-navy-800 transition-colors">
+                className="mt-6 w-full py-3.5 rounded-xl text-white font-bold disabled:opacity-40 transition-colors"
+                style={{ backgroundColor: brand1 }}>
                 Continuar →
               </button>
             </div>
@@ -452,7 +470,8 @@ export default function Scheduler() {
             <div className="flex gap-3 mt-6">
               <button onClick={() => setStep(0)} className="flex-1 py-3 rounded-xl border-2 border-gray-200 text-gray-600 font-medium">← Voltar</button>
               <button disabled={!form.clientName || !form.clientEmail} onClick={() => setStep(2)}
-                className="flex-1 py-3 rounded-xl bg-navy-900 text-white font-bold disabled:opacity-40 hover:bg-navy-800 transition-colors">
+                className="flex-1 py-3 rounded-xl text-white font-bold disabled:opacity-40 transition-colors"
+                style={{ backgroundColor: brand1 }}>
                 Continuar →
               </button>
             </div>
@@ -499,7 +518,8 @@ export default function Scheduler() {
               <button
                 onClick={showPaymentStep ? handleGoToPayment : handleFreeBook}
                 disabled={booking || creatingIntent || detectingSpecialty || !form.description}
-                className="flex-1 py-3 rounded-xl bg-brand-500 text-navy-900 font-bold disabled:opacity-50 hover:bg-brand-400 transition-colors">
+                className="flex-1 py-3 rounded-xl font-bold disabled:opacity-50 transition-colors"
+                style={{ backgroundColor: brand2, color: brand1 }}>
                 {booking || creatingIntent ? 'Aguarde...' : (showPaymentStep ? 'Ir para pagamento →' : 'Confirmar →')}
               </button>
             </div>
@@ -520,6 +540,7 @@ export default function Scheduler() {
                 onSuccess={handlePaymentSuccess}
                 onError={setError}
                 consultaValor={consultaValor}
+                brand1={brand1}
               />
             </Elements>
             <button onClick={() => { setStep(2); setClientSecret(null); setPendingAppt(null) }}

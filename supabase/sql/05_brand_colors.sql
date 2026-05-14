@@ -1,0 +1,2 @@
+ALTER TABLE "LawyerSettings" ADD COLUMN IF NOT EXISTS "brandColor1" TEXT;
+ALTER TABLE "LawyerSettings" ADD COLUMN IF NOT EXISTS "brandColor2" TEXT;

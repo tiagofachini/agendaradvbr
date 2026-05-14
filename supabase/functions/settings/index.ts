@@ -45,6 +45,8 @@ Deno.serve(async (req) => {
             state: s?.state ?? '',
             logoUrl: s?.logoUrl ?? '',
             specialties: s?.specialties ?? [],
+            brandColor1: s?.brandColor1 ?? '',
+            brandColor2: s?.brandColor2 ?? '',
           },
           scheduler: {
             schedulerSlug: s?.schedulerSlug ?? '',
