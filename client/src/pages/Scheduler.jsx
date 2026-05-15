@@ -365,7 +365,7 @@ export default function Scheduler() {
 
       <div className="px-6 py-8 text-center" style={{ backgroundColor: brand1 }}>
         {info.logoUrl && (
-          <img src={info.logoUrl} alt="logo" className="h-16 mx-auto mb-4 rounded-xl object-contain bg-white/10 p-1" />
+          <img src={info.logoUrl} alt="logo" className="h-16 w-16 mx-auto mb-4 rounded-full object-cover bg-white p-1 shadow-md ring-2 ring-white/20" />
         )}
         <h1 className="text-white text-2xl font-bold">{info.lawyerName}</h1>
 

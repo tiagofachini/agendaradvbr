@@ -265,9 +265,21 @@ function OfficeSection({ data, onSaved }) {
         <p>Estas informações aparecem na sua página pública de agendamento. Uma logo bem cuidada e as especialidades corretas aumentam a confiança do cliente antes mesmo do primeiro contato. O endereço completo demonstra profissionalismo e facilita que o cliente saiba onde ficará a consulta presencial.</p>
         <p className="text-xs text-blue-600 font-medium">Dica: selecione apenas as especialidades que você realmente atende — isso ajuda o cliente a confirmar que você é o advogado certo para o caso dele.</p>
       </InfoBlock>
-      <Field label="Logo do escritório">
-        <LogoUpload currentUrl={form.logoUrl} lawyerId={lawyer?.id} onChange={url => setForm(f => ({ ...f, logoUrl: url }))} />
-      </Field>
+      <div className="border border-gray-100 rounded-xl p-4 space-y-4 bg-gray-50/40">
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Identidade visual</p>
+        <Field label="Logo do escritório">
+          <LogoUpload currentUrl={form.logoUrl} lawyerId={lawyer?.id} onChange={url => setForm(f => ({ ...f, logoUrl: url }))} />
+        </Field>
+        <div className="grid grid-cols-2 gap-4">
+          <ColorPicker label="Cor principal"
+            value={form.brandColor1}
+            onChange={v => setForm(f => ({ ...f, brandColor1: v }))} />
+          <ColorPicker label="Cor de destaque"
+            value={form.brandColor2}
+            onChange={v => setForm(f => ({ ...f, brandColor2: v }))} />
+        </div>
+        <p className="text-xs text-gray-400">Estas cores personalizam os botões e elementos da sua página de agendamento.</p>
+      </div>
       <div className="grid grid-cols-2 gap-4">
         <Field label="CEP">
           <div className="flex gap-2">
@@ -322,17 +334,6 @@ function OfficeSection({ data, onSaved }) {
           })}
         </div>
       </Field>
-      <div className="grid grid-cols-2 gap-4">
-        <ColorPicker label="Cor principal"
-          value={form.brandColor1}
-          onChange={v => setForm(f => ({ ...f, brandColor1: v }))} />
-        <ColorPicker label="Cor de destaque"
-          value={form.brandColor2}
-          onChange={v => setForm(f => ({ ...f, brandColor2: v }))} />
-      </div>
-      <p className="text-xs text-gray-400 -mt-2">
-        Estas cores personalizam os botões e elementos da sua página de agendamento.
-      </p>
     </Section>
   )
 }
