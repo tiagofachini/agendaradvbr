@@ -258,6 +258,27 @@ Deno.serve(async (req) => {
       return Response.json({ url: loginLink.url }, { headers: cors })
     }
 
+    if (req.method === 'POST' && action === 'sync') {
+      if (!lawyer.stripeAccountId) {
+        return Response.json({ stripeChargesEnabled: false, stripeOnboardingComplete: false }, { headers: cors })
+      }
+
+      const account = await st.accounts.retrieve(lawyer.stripeAccountId)
+      const sbAdmin = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      )
+      await sbAdmin.from('Lawyer').update({
+        stripeOnboardingComplete: account.details_submitted ?? false,
+        stripeChargesEnabled: account.charges_enabled ?? false,
+      }).eq('id', lawyer.id)
+
+      return Response.json({
+        stripeChargesEnabled: account.charges_enabled ?? false,
+        stripeOnboardingComplete: account.details_submitted ?? false,
+      }, { headers: cors })
+    }
+
     return new Response('Not Found', { status: 404, headers: cors })
   } catch (err) {
     return Response.json({ error: err.message }, { status: 500, headers: cors })

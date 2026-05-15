@@ -491,7 +491,7 @@ function CalendarSection({ data, onSaved }) {
   )
 }
 
-function FinancialSection({ data }) {
+function FinancialSection({ data, banner }) {
   const f = data.financial || {}
   const [onboarding, setOnboarding] = useState(false)
   const [error, setError] = useState('')
@@ -513,6 +513,12 @@ function FinancialSection({ data }) {
 
   return (
     <div className="space-y-5">
+      {banner && (
+        <div className={`border rounded-xl p-4 flex items-start gap-3 text-sm ${banner.startsWith('✓') ? 'bg-green-50 border-green-200 text-green-800' : 'bg-blue-50 border-blue-200 text-blue-800'}`}>
+          <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 mt-0.5 ${banner.startsWith('✓') ? 'bg-green-500' : 'bg-blue-500'}`} />
+          <p className="font-medium">{banner}</p>
+        </div>
+      )}
       <div className="bg-navy-900 rounded-2xl p-6 text-white">
         <h3 className="font-bold text-lg mb-4">Como funciona o recebimento?</h3>
         <div className="space-y-4">
@@ -644,6 +650,7 @@ export default function Settings() {
   const [activeTab, setActiveTab] = useState('account')
   const [settingsData, setSettingsData] = useState(null)
   const [loadError, setLoadError] = useState('')
+  const [stripeBanner, setStripeBanner] = useState('')
 
   const load = () => {
     setLoadError('')
@@ -652,7 +659,32 @@ export default function Settings() {
       .catch(err => setLoadError(errMsg(err)))
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const stripe = params.get('stripe')
+    window.history.replaceState({}, '', '/configuracoes')
+
+    if (stripe === 'success') {
+      setActiveTab('financial')
+      setStripeBanner('Cadastro recebido! Sincronizando status da sua conta Stripe...')
+      api.post('/stripe-connect/sync')
+        .then(({ data }) => {
+          if (data.stripeChargesEnabled) {
+            setStripeBanner('✓ Conta Stripe conectada e ativa! Você já pode receber pagamentos.')
+          } else {
+            setStripeBanner('Cadastro enviado. A Stripe pode levar alguns minutos para verificar sua conta.')
+          }
+          load()
+        })
+        .catch(load)
+    } else if (stripe === 'refresh') {
+      setActiveTab('financial')
+      setStripeBanner('O link de cadastro expirou. Clique em "Continuar cadastro" para tentar novamente.')
+      load()
+    } else {
+      load()
+    }
+  }, [])
 
   if (loadError) return (
     <div className="p-6 flex flex-col items-center justify-center min-h-96 gap-4">
@@ -688,7 +720,7 @@ export default function Settings() {
       {activeTab === 'office'    && <OfficeSection     data={settingsData} onSaved={load} />}
       {activeTab === 'scheduler' && <SchedulerSection  data={settingsData} onSaved={load} />}
       {activeTab === 'calendar'  && <CalendarSection   data={settingsData} onSaved={load} />}
-      {activeTab === 'financial' && <FinancialSection  data={settingsData} />}
+      {activeTab === 'financial' && <FinancialSection  data={settingsData} banner={stripeBanner} />}
       {activeTab === 'alerts'    && <AlertsSection     data={settingsData} onSaved={load} />}
     </div>
   )
