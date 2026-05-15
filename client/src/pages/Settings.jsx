@@ -338,6 +338,17 @@ function OfficeSection({ data, onSaved }) {
   )
 }
 
+// Detects Brazilian phone number patterns: (XX) XXXXX-XXXX, +55..., 8+ consecutive digits
+const PHONE_RE = /(\+?55[\s-]?)?(\(?\d{2}\)?\s?)(\d{4,5}[-\s]?\d{4})|\d{8,}/g
+
+function stripPhoneNumbers(text) {
+  return text.replace(PHONE_RE, '').replace(/\s{2,}/g, ' ').trim()
+}
+
+function hasPhoneNumber(text) {
+  return PHONE_RE.test(text)
+}
+
 function SchedulerSection({ data, onSaved }) {
   const sc = data.scheduler || {}
   const [form, setForm] = useState({
@@ -349,6 +360,7 @@ function SchedulerSection({ data, onSaved }) {
   const [loading, setLoading] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
+  const [phoneStripped, setPhoneStripped] = useState(false)
 
   useEffect(() => {
     const sc = data.scheduler || {}
@@ -359,6 +371,19 @@ function SchedulerSection({ data, onSaved }) {
       customMeetingUrl: sc.customMeetingUrl || '',
     })
   }, [data])
+
+  const handleHighlightChange = (e) => {
+    PHONE_RE.lastIndex = 0
+    const raw = e.target.value
+    if (hasPhoneNumber(raw)) {
+      PHONE_RE.lastIndex = 0
+      setForm(f => ({ ...f, highlightMessage: stripPhoneNumbers(raw) }))
+      setPhoneStripped(true)
+    } else {
+      setForm(f => ({ ...f, highlightMessage: raw }))
+      setPhoneStripped(false)
+    }
+  }
 
   const save = async (e) => {
     e.preventDefault(); setLoading(true); setSaved(false); setError('')
@@ -403,8 +428,13 @@ function SchedulerSection({ data, onSaved }) {
       </Field>
       <Field label="Mensagem de destaque (opcional)">
         <input className={inputCls} value={form.highlightMessage}
-          onChange={e => setForm({ ...form, highlightMessage: e.target.value })}
+          onChange={handleHighlightChange}
           placeholder="Ex: Primeira consulta com desconto!" />
+        {phoneStripped && (
+          <p className="text-xs text-amber-600 mt-1.5 flex items-center gap-1">
+            <span>⚠</span> Números de telefone não são permitidos neste campo.
+          </p>
+        )}
       </Field>
       <Field label="Link de reunião padrão (Google Meet, Zoom, Teams…)">
         <input className={inputCls} value={form.customMeetingUrl}
