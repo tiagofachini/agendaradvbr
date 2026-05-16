@@ -94,29 +94,37 @@ async function getGoogleAccessToken(refreshToken: string): Promise<string> {
   return data.access_token
 }
 
-async function createGoogleMeetLink(accessToken: string, p: {
+async function createCalendarEvent(accessToken: string, p: {
   summary: string; description: string; startISO: string; endISO: string
+  location?: string; attendeeEmail?: string; withMeet: boolean
 }): Promise<string | null> {
+  const body: Record<string, unknown> = {
+    summary: p.summary,
+    description: p.description,
+    start: { dateTime: p.startISO, timeZone: 'America/Sao_Paulo' },
+    end:   { dateTime: p.endISO,   timeZone: 'America/Sao_Paulo' },
+  }
+  if (p.location)      body.location  = p.location
+  if (p.attendeeEmail) body.attendees = [{ email: p.attendeeEmail }]
+  if (p.withMeet) {
+    body.conferenceData = {
+      createRequest: {
+        requestId: crypto.randomUUID(),
+        conferenceSolutionKey: { type: 'hangoutsMeet' },
+      },
+    }
+  }
+  const qs = p.withMeet ? '?conferenceDataVersion=1&sendUpdates=none' : '?sendUpdates=none'
   const res = await fetch(
-    'https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1&sendUpdates=none',
+    `https://www.googleapis.com/calendar/v3/calendars/primary/events${qs}`,
     {
       method: 'POST',
       headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        summary: p.summary,
-        description: p.description,
-        start: { dateTime: p.startISO, timeZone: 'America/Sao_Paulo' },
-        end: { dateTime: p.endISO, timeZone: 'America/Sao_Paulo' },
-        conferenceData: {
-          createRequest: {
-            requestId: crypto.randomUUID(),
-            conferenceSolutionKey: { type: 'hangoutsMeet' },
-          },
-        },
-      }),
+      body: JSON.stringify(body),
     }
   )
   const event = await res.json()
+  if (!p.withMeet) return null
   const entry = (event?.conferenceData?.entryPoints ?? [])
     .find((e: { entryPointType: string; uri: string }) => e.entryPointType === 'video')
   return entry?.uri ?? null
@@ -266,22 +274,26 @@ Deno.serve(async (req) => {
       const hasAddress = !!(s.street && s.city)
 
       let meetingLink: string | null = null
-      if (!hasAddress) {
-        if (s.googleCalendarConnected && s.googleCalendarRefreshToken) {
-          try {
-            const accessToken = await getGoogleAccessToken(s.googleCalendarRefreshToken)
-            const endISO = new Date(new Date(apptDate).getTime() + (s.slotDuration ?? 60) * 60_000).toISOString()
-            meetingLink = await createGoogleMeetLink(accessToken, {
-              summary: `Consulta jurídica: ${specialty} — ${clientName}`,
-              description: description ? `Descrição: ${description}` : `Consulta com ${clientName}`,
-              startISO: apptDate,
-              endISO,
-            })
-          } catch (_) { /* fallback below */ }
-        }
-        if (!meetingLink) {
-          meetingLink = s.customMeetingUrl?.trim() || `https://meet.jit.si/agendaradv${apptId.replace(/-/g, '')}`
-        }
+      if (s.googleCalendarConnected && s.googleCalendarRefreshToken) {
+        try {
+          const accessToken = await getGoogleAccessToken(s.googleCalendarRefreshToken)
+          const endISO = new Date(new Date(apptDate).getTime() + (s.slotDuration ?? 60) * 60_000).toISOString()
+          const location = hasAddress
+            ? [s.street, s.number, s.city, s.state].filter(Boolean).join(', ')
+            : undefined
+          meetingLink = await createCalendarEvent(accessToken, {
+            summary: `Consulta jurídica: ${specialty} — ${clientName}`,
+            description: description ? `Descrição: ${description}` : `Consulta com ${clientName}`,
+            startISO: apptDate,
+            endISO,
+            location,
+            attendeeEmail: clientEmail,
+            withMeet: !hasAddress,
+          })
+        } catch (_) { /* fallback below */ }
+      }
+      if (!meetingLink && !hasAddress) {
+        meetingLink = s.customMeetingUrl?.trim() || `https://meet.jit.si/agendaradv${apptId.replace(/-/g, '')}`
       }
 
       const { error: apptErr } = await sb
