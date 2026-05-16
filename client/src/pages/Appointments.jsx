@@ -10,11 +10,26 @@ import { LEGAL_SPECIALTIES } from '../lib/specialties'
 
 const HOURS = Array.from({ length: 14 }, (_, i) => i + 7) // 07 – 20
 
-const STATUS = {
-  PENDING_PAYMENT: { label: 'Ag. Pagamento', bg: 'bg-yellow-400', text: 'text-yellow-900', ring: 'ring-yellow-300' },
-  CONFIRMED:       { label: 'Confirmado',    bg: 'bg-blue-500',   text: 'text-white',       ring: 'ring-blue-300' },
-  COMPLETED:       { label: 'Realizado',     bg: 'bg-green-500',  text: 'text-white',       ring: 'ring-green-300' },
-  CANCELLED:       { label: 'Cancelado',     bg: 'bg-gray-300',   text: 'text-gray-600',    ring: 'ring-gray-200' },
+// Agendamentos manuais (advogado) → azul/verde/amarelo
+// Agendamentos do scheduler (cliente final) → violeta/laranja/verde-azulado
+const SOURCE_STYLES = {
+  MANUAL: {
+    PENDING_PAYMENT: { label: 'Ag. Pagamento', bg: 'bg-yellow-400', text: 'text-yellow-900', badge: 'bg-yellow-100 text-yellow-700' },
+    CONFIRMED:       { label: 'Confirmado',    bg: 'bg-blue-600',   text: 'text-white',       badge: 'bg-blue-100 text-blue-700' },
+    COMPLETED:       { label: 'Realizado',     bg: 'bg-green-500',  text: 'text-white',       badge: 'bg-green-100 text-green-700' },
+    CANCELLED:       { label: 'Cancelado',     bg: 'bg-gray-300',   text: 'text-gray-600',    badge: 'bg-gray-100 text-gray-500' },
+  },
+  SCHEDULER: {
+    PENDING_PAYMENT: { label: 'Ag. Pagamento', bg: 'bg-orange-400',  text: 'text-orange-900', badge: 'bg-orange-100 text-orange-700' },
+    CONFIRMED:       { label: 'Confirmado',    bg: 'bg-violet-500',  text: 'text-white',       badge: 'bg-violet-100 text-violet-700' },
+    COMPLETED:       { label: 'Realizado',     bg: 'bg-teal-500',    text: 'text-white',       badge: 'bg-teal-100 text-teal-700' },
+    CANCELLED:       { label: 'Cancelado',     bg: 'bg-slate-300',   text: 'text-slate-600',   badge: 'bg-slate-100 text-slate-500' },
+  },
+}
+
+function getStyle(appt) {
+  const src = appt?.source === 'SCHEDULER' ? 'SCHEDULER' : 'MANUAL'
+  return (SOURCE_STYLES[src][appt?.status] || SOURCE_STYLES[src].CONFIRMED)
 }
 
 const inputCls = 'w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-navy-700'
@@ -195,7 +210,7 @@ function WeekView({ weekStart, appointments, onSlotClick, onAppointmentClick }) 
                   onClick={() => onSlotClick(d, hour)}
                 >
                   {appts.map(a => {
-                    const s = STATUS[a.status] || STATUS.CONFIRMED
+                    const s = getStyle(a)
                     return (
                       <div key={a.id} onClick={(e) => { e.stopPropagation(); onAppointmentClick(a) }}
                         className={`${s.bg} ${s.text} text-xs rounded-lg px-1.5 py-1 mb-1 cursor-pointer hover:opacity-80 transition-opacity truncate`}>
@@ -225,7 +240,7 @@ function ListView({ appointments, onAppointmentClick }) {
   return (
     <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
       {appointments.map((a) => {
-        const s = STATUS[a.status] || STATUS.CONFIRMED
+        const s = getStyle(a)
         return (
           <div key={a.id}
             onClick={() => onAppointmentClick(a)}
@@ -240,10 +255,7 @@ function ListView({ appointments, onAppointmentClick }) {
               <p className="font-semibold text-navy-900">{a.clientName}</p>
               <p className="text-sm text-gray-500">{a.specialty} · {format(new Date(a.date), 'HH:mm')} ({a.duration}min)</p>
             </div>
-            <span className={`text-xs px-2.5 py-1 rounded-full font-medium flex-shrink-0
-              ${a.status === 'CONFIRMED' ? 'bg-blue-100 text-blue-700' :
-                a.status === 'COMPLETED' ? 'bg-green-100 text-green-700' :
-                a.status === 'CANCELLED' ? 'bg-gray-100 text-gray-500' : 'bg-yellow-100 text-yellow-700'}`}>
+            <span className={`text-xs px-2.5 py-1 rounded-full font-medium flex-shrink-0 ${s.badge}`}>
               {s.label}
             </span>
           </div>
@@ -355,11 +367,19 @@ export default function Appointments() {
       )}
 
       {/* Legenda */}
-      <div className="flex flex-wrap gap-4 mt-4">
-        {Object.entries(STATUS).map(([k, v]) => (
-          <div key={k} className="flex items-center gap-1.5">
-            <div className={`w-3 h-3 rounded-full ${v.bg}`} />
-            <span className="text-xs text-gray-500">{v.label}</span>
+      <div className="mt-4 space-y-2">
+        {[
+          { label: 'Agendado manualmente', src: 'MANUAL' },
+          { label: 'Agendado pelo cliente', src: 'SCHEDULER' },
+        ].map(({ label, src }) => (
+          <div key={src} className="flex flex-wrap items-center gap-3">
+            <span className="text-xs text-gray-400 w-36 flex-shrink-0">{label}</span>
+            {Object.values(SOURCE_STYLES[src]).map((v, i) => (
+              <div key={i} className="flex items-center gap-1.5">
+                <div className={`w-3 h-3 rounded-full ${v.bg}`} />
+                <span className="text-xs text-gray-500">{v.label}</span>
+              </div>
+            ))}
           </div>
         ))}
       </div>
