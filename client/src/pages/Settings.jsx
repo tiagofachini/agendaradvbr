@@ -6,15 +6,12 @@ import { LEGAL_SPECIALTIES } from '../lib/specialties'
 
 const TABS = [
   { key: 'google',    label: '🔗 Google' },
-  { key: 'account',   label: '👤 Conta' },
-  { key: 'office',    label: '🏢 Escritório' },
+  { key: 'profile',   label: '🏢 Perfil' },
   { key: 'scheduler', label: '📋 Agendador' },
   { key: 'calendar',  label: '📅 Agenda' },
   { key: 'financial', label: '💳 Financeiro' },
   { key: 'alerts',    label: '🔔 Alertas' },
 ]
-
-const DAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 
 function maskPhone(raw) {
   const d = raw.replace(/\D/g, '').slice(0, 11)
@@ -159,59 +156,17 @@ function ColorPicker({ label, value, onChange }) {
   )
 }
 
-function AccountSection({ data, onSaved }) {
-  const a = data.account || {}
-  const [form, setForm] = useState({ name: a.name || '', email: a.email || '', whatsapp: a.whatsapp || '' })
-  const [loading, setLoading] = useState(false)
-  const [saved, setSaved] = useState(false)
-  const [error, setError] = useState('')
-
-  useEffect(() => {
-    const a = data.account || {}
-    setForm({ name: a.name || '', email: a.email || '', whatsapp: a.whatsapp || '' })
-  }, [data])
-
-  const save = async (e) => {
-    e.preventDefault(); setLoading(true); setSaved(false); setError('')
-    try {
-      await api.put('/settings/account', form)
-      setSaved(true); onSaved()
-    } catch (err) {
-      setError(errMsg(err))
-    }
-    setLoading(false)
-  }
-
-  return (
-    <Section title="Dados da conta" onSubmit={save} loading={loading} saved={saved} error={error}>
-      <InfoBlock>
-        <p className="font-semibold text-navy-900">Seus dados de identificação</p>
-        <p>Seu nome aparece na página pública de agendamento, para que os clientes saibam com quem estão marcando consulta. O email é usado para login e notificações. O WhatsApp pode ser utilizado para alertas instantâneos quando um agendamento for feito ou cancelado.</p>
-      </InfoBlock>
-      <Field label="Nome completo">
-        <input className={inputCls} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
-      </Field>
-      <Field label="Email de trabalho">
-        <input className={inputCls} type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
-      </Field>
-      <Field label="WhatsApp / Celular">
-        <input className={inputCls} value={form.whatsapp}
-          onChange={e => setForm({ ...form, whatsapp: maskPhone(e.target.value) })}
-          placeholder="(11) 99999-9999" maxLength={15} inputMode="numeric" />
-      </Field>
-    </Section>
-  )
-}
-
-function OfficeSection({ data, onSaved }) {
+function ProfileSection({ data, onSaved }) {
   const { lawyer } = useAuth()
+  const a = data.account || {}
   const o = data.office || {}
   const [form, setForm] = useState({
+    name: a.name || '', email: a.email || '', whatsapp: a.whatsapp || '',
+    logoUrl: o.logoUrl || '', brandColor1: o.brandColor1 || '', brandColor2: o.brandColor2 || '',
     cep: o.cep || '', street: o.street || '', number: o.number || '',
     complement: o.complement || '', neighborhood: o.neighborhood || '',
-    city: o.city || '', state: o.state || '', logoUrl: o.logoUrl || '',
+    city: o.city || '', state: o.state || '',
     specialties: o.specialties || [],
-    brandColor1: o.brandColor1 || '', brandColor2: o.brandColor2 || '',
   })
   const [loading, setLoading] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -220,13 +175,15 @@ function OfficeSection({ data, onSaved }) {
   const [specSearch, setSpecSearch] = useState('')
 
   useEffect(() => {
+    const a = data.account || {}
     const o = data.office || {}
     setForm({
+      name: a.name || '', email: a.email || '', whatsapp: a.whatsapp || '',
+      logoUrl: o.logoUrl || '', brandColor1: o.brandColor1 || '', brandColor2: o.brandColor2 || '',
       cep: o.cep || '', street: o.street || '', number: o.number || '',
       complement: o.complement || '', neighborhood: o.neighborhood || '',
-      city: o.city || '', state: o.state || '', logoUrl: o.logoUrl || '',
+      city: o.city || '', state: o.state || '',
       specialties: o.specialties || [],
-      brandColor1: o.brandColor1 || '', brandColor2: o.brandColor2 || '',
     })
   }, [data])
 
@@ -251,7 +208,15 @@ function OfficeSection({ data, onSaved }) {
   const save = async (e) => {
     e.preventDefault(); setLoading(true); setSaved(false); setError('')
     try {
-      await api.put('/settings/office', form)
+      await Promise.all([
+        api.put('/settings/account', { name: form.name, email: form.email, whatsapp: form.whatsapp }),
+        api.put('/settings/office', {
+          logoUrl: form.logoUrl, brandColor1: form.brandColor1, brandColor2: form.brandColor2,
+          cep: form.cep, street: form.street, number: form.number, complement: form.complement,
+          neighborhood: form.neighborhood, city: form.city, state: form.state,
+          specialties: form.specialties,
+        }),
+      ])
       setSaved(true); onSaved()
     } catch (err) {
       setError(errMsg(err))
@@ -260,81 +225,113 @@ function OfficeSection({ data, onSaved }) {
   }
 
   return (
-    <Section title="Dados do escritório" onSubmit={save} loading={loading} saved={saved} error={error}>
-      <InfoBlock>
-        <p className="font-semibold text-navy-900">Sua vitrine profissional</p>
-        <p>Estas informações aparecem na sua página pública de agendamento. Uma logo bem cuidada e as especialidades corretas aumentam a confiança do cliente antes mesmo do primeiro contato. O endereço completo demonstra profissionalismo e facilita que o cliente saiba onde ficará a consulta presencial.</p>
-        <p className="text-xs text-blue-600 font-medium">Dica: selecione apenas as especialidades que você realmente atende — isso ajuda o cliente a confirmar que você é o advogado certo para o caso dele.</p>
-      </InfoBlock>
+    <Section title="Perfil do escritório" desc="Sua vitrine pública e dados internos." onSubmit={save} loading={loading} saved={saved} error={error}>
+
+      {/* Identidade visual */}
       <div className="border border-gray-100 rounded-xl p-4 space-y-4 bg-gray-50/40">
         <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Identidade visual</p>
         <Field label="Logo do escritório">
           <LogoUpload currentUrl={form.logoUrl} lawyerId={lawyer?.id} onChange={url => setForm(f => ({ ...f, logoUrl: url }))} />
         </Field>
         <div className="grid grid-cols-2 gap-4">
-          <ColorPicker label="Cor principal"
-            value={form.brandColor1}
-            onChange={v => setForm(f => ({ ...f, brandColor1: v }))} />
-          <ColorPicker label="Cor de destaque"
-            value={form.brandColor2}
-            onChange={v => setForm(f => ({ ...f, brandColor2: v }))} />
+          <ColorPicker label="Cor principal" value={form.brandColor1} onChange={v => setForm(f => ({ ...f, brandColor1: v }))} />
+          <ColorPicker label="Cor de destaque" value={form.brandColor2} onChange={v => setForm(f => ({ ...f, brandColor2: v }))} />
         </div>
-        <p className="text-xs text-gray-400">Estas cores personalizam os botões e elementos da sua página de agendamento.</p>
+        <p className="text-xs text-gray-400">Estas cores e a logo aparecem na sua página pública de agendamento.</p>
       </div>
-      <div className="grid grid-cols-2 gap-4">
-        <Field label="CEP">
-          <div className="flex gap-2">
-            <input className={inputCls} value={form.cep} onChange={e => setForm({ ...form, cep: e.target.value })} onBlur={lookupCep} placeholder="00000-000" />
-            {cepLoading && <span className="text-xs text-gray-400 self-center">Buscando...</span>}
+
+      {/* Endereço do escritório */}
+      <div className="border border-gray-100 rounded-xl p-4 space-y-4 bg-gray-50/40">
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Endereço do escritório</p>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="CEP">
+            <div className="flex gap-2">
+              <input className={inputCls} value={form.cep}
+                onChange={e => setForm({ ...form, cep: e.target.value })}
+                onBlur={lookupCep} placeholder="00000-000" />
+              {cepLoading && <span className="text-xs text-gray-400 self-center">Buscando...</span>}
+            </div>
+          </Field>
+          <Field label="Estado">
+            <input className={inputCls} value={form.state}
+              onChange={e => setForm({ ...form, state: e.target.value })} placeholder="SP" />
+          </Field>
+        </div>
+        <Field label="Logradouro">
+          <input className={inputCls} value={form.street} onChange={e => setForm({ ...form, street: e.target.value })} />
+        </Field>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Número">
+            <input className={inputCls} value={form.number} onChange={e => setForm({ ...form, number: e.target.value })} />
+          </Field>
+          <Field label="Complemento">
+            <input className={inputCls} value={form.complement} onChange={e => setForm({ ...form, complement: e.target.value })} />
+          </Field>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Bairro">
+            <input className={inputCls} value={form.neighborhood} onChange={e => setForm({ ...form, neighborhood: e.target.value })} />
+          </Field>
+          <Field label="Cidade">
+            <input className={inputCls} value={form.city} onChange={e => setForm({ ...form, city: e.target.value })} />
+          </Field>
+        </div>
+        <p className="text-xs text-gray-400">O endereço é exibido no agendador apenas como local da consulta presencial — nunca como forma de contato direto.</p>
+      </div>
+
+      {/* Dados do responsável */}
+      <div className="border border-gray-100 rounded-xl p-4 space-y-4 bg-gray-50/40">
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Dados do responsável</p>
+          <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">uso interno</span>
+        </div>
+        <InfoBlock>
+          <p>Email e WhatsApp são usados exclusivamente para login e alertas internos. <strong>Não são exibidos</strong> no agendador público — clientes só conseguem contato via agendamento.</p>
+        </InfoBlock>
+        <Field label="Nome completo">
+          <input className={inputCls} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
+        </Field>
+        <Field label="Email de trabalho">
+          <input className={inputCls} type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
+        </Field>
+        <Field label="WhatsApp / Celular">
+          <input className={inputCls} value={form.whatsapp}
+            onChange={e => setForm({ ...form, whatsapp: maskPhone(e.target.value) })}
+            placeholder="(11) 99999-9999" maxLength={15} inputMode="numeric" />
+        </Field>
+      </div>
+
+      {/* Especialidades */}
+      <div className="border border-gray-100 rounded-xl p-4 space-y-4 bg-gray-50/40">
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Especialidades</p>
+        <Field label="Áreas de atuação (até 5)">
+          <div className="flex items-center justify-between mb-2">
+            <input className={inputCls + ' flex-1 mr-3'} placeholder="Buscar especialidade..."
+              value={specSearch} onChange={e => setSpecSearch(e.target.value)} />
+            <span className={`text-xs font-medium flex-shrink-0 ${form.specialties.length >= 5 ? 'text-red-500' : 'text-gray-400'}`}>
+              {form.specialties.length}/5
+            </span>
           </div>
-        </Field>
-        <Field label="Estado">
-          <input className={inputCls} value={form.state} onChange={e => setForm({ ...form, state: e.target.value })} placeholder="SP" />
-        </Field>
-      </div>
-      <Field label="Logradouro">
-        <input className={inputCls} value={form.street} onChange={e => setForm({ ...form, street: e.target.value })} />
-      </Field>
-      <div className="grid grid-cols-2 gap-4">
-        <Field label="Número">
-          <input className={inputCls} value={form.number} onChange={e => setForm({ ...form, number: e.target.value })} />
-        </Field>
-        <Field label="Complemento">
-          <input className={inputCls} value={form.complement} onChange={e => setForm({ ...form, complement: e.target.value })} />
-        </Field>
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <Field label="Bairro">
-          <input className={inputCls} value={form.neighborhood} onChange={e => setForm({ ...form, neighborhood: e.target.value })} />
-        </Field>
-        <Field label="Cidade">
-          <input className={inputCls} value={form.city} onChange={e => setForm({ ...form, city: e.target.value })} />
+          {form.specialties.length >= 5 && (
+            <p className="text-xs text-red-500 mb-2">Limite atingido. Remova uma para adicionar outra.</p>
+          )}
+          <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto">
+            {LEGAL_SPECIALTIES.filter(s => s.toLowerCase().includes(specSearch.toLowerCase())).map(s => {
+              const selected = form.specialties.includes(s)
+              const disabled = !selected && form.specialties.length >= 5
+              return (
+                <button type="button" key={s} onClick={() => toggleSpecialty(s)} disabled={disabled}
+                  className={`text-xs px-3 py-1.5 rounded-full border-2 font-medium transition-colors
+                    ${selected ? 'bg-navy-900 border-navy-900 text-white' : disabled ? 'border-gray-100 text-gray-300 cursor-not-allowed' : 'border-gray-200 text-gray-600 hover:border-navy-900'}`}>
+                  {s}
+                </button>
+              )
+            })}
+          </div>
+          <p className="text-xs text-gray-400 mt-2">Selecione apenas as especialidades que você realmente atende — aparecem no seu agendador público.</p>
         </Field>
       </div>
-      <Field label="Especialidades do escritório">
-        <div className="flex items-center justify-between mb-2">
-          <input className={inputCls + ' flex-1 mr-3'} placeholder="Buscar especialidade..." value={specSearch} onChange={e => setSpecSearch(e.target.value)} />
-          <span className={`text-xs font-medium flex-shrink-0 ${form.specialties.length >= 5 ? 'text-red-500' : 'text-gray-400'}`}>
-            {form.specialties.length}/5
-          </span>
-        </div>
-        {form.specialties.length >= 5 && (
-          <p className="text-xs text-red-500 mb-2">Limite de 5 especialidades atingido. Remova uma para adicionar outra.</p>
-        )}
-        <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto">
-          {LEGAL_SPECIALTIES.filter(s => s.toLowerCase().includes(specSearch.toLowerCase())).map(s => {
-            const selected = form.specialties.includes(s)
-            const disabled = !selected && form.specialties.length >= 5
-            return (
-              <button type="button" key={s} onClick={() => toggleSpecialty(s)} disabled={disabled}
-                className={`text-xs px-3 py-1.5 rounded-full border-2 font-medium transition-colors
-                  ${selected ? 'bg-navy-900 border-navy-900 text-white' : disabled ? 'border-gray-100 text-gray-300 cursor-not-allowed' : 'border-gray-200 text-gray-600 hover:border-navy-900'}`}>
-                {s}
-              </button>
-            )
-          })}
-        </div>
-      </Field>
+
     </Section>
   )
 }
@@ -546,8 +543,11 @@ function SchedulerSection({ data, onSaved, banner, onGoToGoogle }) {
       )}
       <InfoBlock>
         <p className="font-semibold text-navy-900">O que é o endereço de agendamento?</p>
-        <p>É o link exclusivo que você compartilha com seus clientes para que eles agendem uma consulta diretamente com você — sem intermediários, sem telefonemas. O cliente acessa, escolhe o horário disponível e confirma o agendamento em poucos cliques.</p>
-        <p>O endereço fica no formato <span className="font-semibold text-navy-900">agendar.adv.br/seu-nome</span>. Você pode divulgá-lo no Instagram, no WhatsApp, no cartão de visitas ou na assinatura do seu email.</p>
+        <p>É o link exclusivo que você compartilha com seus clientes para que eles agendem uma consulta diretamente com você — sem intermediários, sem telefonemas. O cliente acessa, escolhe o horário disponível e confirma em poucos cliques.</p>
+        <p>O endereço fica no formato <span className="font-semibold text-navy-900">agendar.adv.br/seu-nome</span>. Divulgue no Instagram, no WhatsApp, no cartão de visitas ou na assinatura do seu email.</p>
+        <p className="flex items-center gap-1.5 text-xs font-medium text-navy-700 border-t border-blue-100 pt-2 mt-1">
+          <span>🔒</span> O agendador <strong>não exibe</strong> nenhum telefone, email ou WhatsApp do advogado. Clientes só conseguem contato ao completar o agendamento.
+        </p>
       </InfoBlock>
       <Field label="Endereço personalizado">
         <div className="flex items-center border border-gray-300 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-navy-700">
@@ -826,7 +826,7 @@ function AlertsSection({ data, onSaved }) {
     <Section title="Alertas de agendamento" desc="Receba avisos dos seus agendamentos." onSubmit={save} loading={loading} saved={saved} error={error}>
       <InfoBlock>
         <p className="font-semibold text-navy-900">Fique por dentro em tempo real</p>
-        <p>Ative as notificações para saber imediatamente quando um cliente agenda ou cancela uma consulta. Os alertas por email são enviados para o endereço cadastrado na aba <span className="font-semibold">Conta</span>. Os alertas por WhatsApp são enviados para o número cadastrado na mesma aba.</p>
+        <p>Ative as notificações para saber imediatamente quando um cliente agenda ou cancela uma consulta. Os alertas por email e WhatsApp são enviados para os dados cadastrados na aba <span className="font-semibold">Perfil</span>.</p>
       </InfoBlock>
       <div className="bg-gray-50 rounded-xl px-4">
         <Toggle field="newBookingByEmail"      label="Novo agendamento por email" />
@@ -929,8 +929,7 @@ export default function Settings() {
       </div>
 
       {activeTab === 'google'    && <GoogleIntegrationSection data={settingsData} onSaved={load} banner={calendarBanner} />}
-      {activeTab === 'account'   && <AccountSection   data={settingsData} onSaved={load} />}
-      {activeTab === 'office'    && <OfficeSection     data={settingsData} onSaved={load} />}
+      {activeTab === 'profile'   && <ProfileSection    data={settingsData} onSaved={load} />}
       {activeTab === 'scheduler' && <SchedulerSection  data={settingsData} onSaved={load} banner={calendarBanner} onGoToGoogle={() => setActiveTab('google')} />}
       {activeTab === 'calendar'  && <CalendarSection   data={settingsData} onSaved={load} />}
       {activeTab === 'financial' && <FinancialSection  data={settingsData} banner={stripeBanner} />}
