@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
+const ADMIN_EMAIL = 'emaildogago@gmail.com'
+
 const NAV = [
   { to: '/dashboard',    icon: '📊', label: 'Dashboard' },
   { to: '/appointments', icon: '📅', label: 'Compromissos' },
@@ -11,7 +13,8 @@ const NAV = [
 ]
 
 export default function AppLayout() {
-  const { lawyer, logout } = useAuth()
+  const { lawyer, logout, session } = useAuth()
+  const isAdmin = session?.user?.email === ADMIN_EMAIL
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
@@ -43,6 +46,22 @@ export default function AppLayout() {
             {label}
           </NavLink>
         ))}
+        {isAdmin && (
+          <NavLink
+            to="/admin"
+            onClick={() => setSidebarOpen(false)}
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors mt-2
+              ${isActive
+                ? 'bg-white/10 text-white'
+                : 'text-gray-500 hover:bg-white/5 hover:text-gray-300'
+              }`
+            }
+          >
+            <span className="text-base">🛡️</span>
+            Admin
+          </NavLink>
+        )}
       </nav>
       <div className="px-4 py-4 border-t border-white/10">
         <div className="flex items-center gap-3 mb-3 px-2">
@@ -61,7 +80,7 @@ export default function AppLayout() {
           onClick={handleLogout}
           className="w-full flex items-center gap-2 px-4 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 text-sm transition-colors"
         >
-          <span>🚪</span> Sair
+          <span>🚶</span> Sair
         </button>
       </div>
     </aside>
@@ -69,12 +88,10 @@ export default function AppLayout() {
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
-      {/* Sidebar desktop */}
       <div className="hidden md:flex flex-col flex-shrink-0">
         <Sidebar />
       </div>
 
-      {/* Sidebar mobile overlay */}
       {sidebarOpen && (
         <div className="fixed inset-0 z-50 md:hidden flex">
           <div className="w-64 flex-shrink-0">
@@ -84,16 +101,13 @@ export default function AppLayout() {
         </div>
       )}
 
-      {/* Main */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Topbar mobile */}
         <header className="md:hidden flex items-center gap-3 bg-navy-900 px-4 py-3.5">
           <button onClick={() => setSidebarOpen(true)} className="text-white text-xl">☰</button>
           <img src="/logo.png" alt="" className="h-7 w-7 object-contain" />
           <span className="text-white font-bold">Agendar<span className="text-brand-500">Adv</span></span>
         </header>
 
-        {/* Content */}
         <main className="flex-1 overflow-y-auto">
           <Outlet />
         </main>

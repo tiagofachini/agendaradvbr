@@ -10,6 +10,7 @@ import Appointments from './pages/Appointments'
 import Clients from './pages/Clients'
 import Finance from './pages/Finance'
 import Settings from './pages/Settings'
+import AdminPage from './pages/AdminPage'
 import TermsPage from './pages/TermsPage'
 import PrivacyPage from './pages/PrivacyPage'
 
@@ -27,6 +28,7 @@ export default function App() {
             <Route path="/clients"      element={<Clients />} />
             <Route path="/finance"      element={<Finance />} />
             <Route path="/settings"     element={<Settings />} />
+            <Route path="/admin"        element={<AdminPage />} />
           </Route>
           <Route path="/:slug" element={<Scheduler />} />
         </Routes>
