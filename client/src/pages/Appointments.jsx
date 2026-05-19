@@ -339,6 +339,7 @@ export default function Appointments() {
   const [statusFilter, setStatusFilter] = useState('')
   const [selected, setSelected] = useState(new Set())
   const [bulkStatus, setBulkStatus] = useState('')
+  const [bulkError, setBulkError] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -372,9 +373,14 @@ export default function Appointments() {
 
   const bulkDelete = async () => {
     if (!window.confirm(`Excluir ${selected.size} compromisso(s)?`)) return
-    await api.delete('/appointments/bulk', { data: { ids: [...selected] } })
-    setAppointments(prev => prev.filter(a => !selected.has(a.id)))
-    clearSelect()
+    setBulkError('')
+    try {
+      await api.delete('/appointments/bulk', { data: { ids: [...selected] } })
+      setAppointments(prev => prev.filter(a => !selected.has(a.id)))
+      clearSelect()
+    } catch (err) {
+      setBulkError(err.response?.data?.error || 'Erro ao excluir compromissos')
+    }
   }
 
   const bulkChangeStatus = async () => {
@@ -496,6 +502,7 @@ export default function Appointments() {
       {/* Barra de ações em lote */}
       {selected.size > 0 && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-navy-900 text-white rounded-2xl shadow-2xl px-5 py-3 flex items-center gap-4">
+          {bulkError && <span className="text-xs text-red-400">{bulkError}</span>}
           <span className="text-sm font-medium">{selected.size} selecionado(s)</span>
           <button onClick={selectAll} className="text-xs text-gray-300 hover:text-white underline">Todos</button>
           <div className="flex items-center gap-2">

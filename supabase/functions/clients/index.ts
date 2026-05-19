@@ -16,6 +16,10 @@ Deno.serve(async (req) => {
     Deno.env.get('SUPABASE_ANON_KEY')!,
     { global: { headers: { Authorization: auth } } }
   )
+  const sbAdmin = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  )
 
   const url = new URL(req.url)
   const parts = url.pathname.split('/').filter(Boolean)
@@ -85,13 +89,17 @@ Deno.serve(async (req) => {
       if (!Array.isArray(ids) || ids.length === 0) {
         return Response.json({ error: 'ids required' }, { status: 400, headers: cors })
       }
-      const { error } = await sb.from('Client').delete().in('id', ids)
+      const { data: lawyerId } = await sb.rpc('get_lawyer_id')
+      if (!lawyerId) return Response.json({ error: 'Perfil não encontrado' }, { status: 404, headers: cors })
+      const { error } = await sbAdmin.from('Client').delete().in('id', ids).eq('lawyerId', lawyerId)
       if (error) throw error
       return new Response(null, { status: 204, headers: cors })
     }
 
     if (req.method === 'DELETE' && id) {
-      const { error } = await sb.from('Client').delete().eq('id', id)
+      const { data: lawyerId } = await sb.rpc('get_lawyer_id')
+      if (!lawyerId) return Response.json({ error: 'Perfil não encontrado' }, { status: 404, headers: cors })
+      const { error } = await sbAdmin.from('Client').delete().eq('id', id).eq('lawyerId', lawyerId)
       if (error) throw error
       return new Response(null, { status: 204, headers: cors })
     }

@@ -302,6 +302,7 @@ export default function Clients() {
   const [showNew, setShowNew] = useState(false)
   const [selectedId, setSelectedId] = useState(null)
   const [selected, setSelected] = useState(new Set())
+  const [bulkError, setBulkError] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -334,10 +335,15 @@ export default function Clients() {
 
   const bulkDelete = async () => {
     if (!window.confirm(`Excluir ${selected.size} cliente(s)? Esta ação não pode ser desfeita.`)) return
-    await api.delete('/clients/bulk', { data: { ids: [...selected] } })
-    setClients(prev => prev.filter(c => !selected.has(c.id)))
-    setTotal(t => t - selected.size)
-    clearSelect()
+    setBulkError('')
+    try {
+      await api.delete('/clients/bulk', { data: { ids: [...selected] } })
+      setClients(prev => prev.filter(c => !selected.has(c.id)))
+      setTotal(t => t - selected.size)
+      clearSelect()
+    } catch (err) {
+      setBulkError(err.response?.data?.error || 'Erro ao excluir clientes')
+    }
   }
 
   return (
@@ -423,6 +429,7 @@ export default function Clients() {
       {/* Barra de ações em lote */}
       {selected.size > 0 && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-navy-900 text-white rounded-2xl shadow-2xl px-5 py-3 flex items-center gap-4">
+          {bulkError && <span className="text-xs text-red-400">{bulkError}</span>}
           <span className="text-sm font-medium">{selected.size} selecionado(s)</span>
           <button onClick={() => setSelected(new Set(clients.map(c => c.id)))}
             className="text-xs text-gray-300 hover:text-white underline">Selecionar todos</button>
