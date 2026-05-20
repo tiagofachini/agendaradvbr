@@ -163,7 +163,7 @@ Deno.serve(async (req) => {
       const { date: dateStr, time: timeStr, ...rest } = body
       const dateISO = timeStr
         ? new Date(`${dateStr}T${timeStr}:00-03:00`).toISOString()
-        : new Date(`${dateStr}T00:00:00-03:00`).toISOString()
+        : new Date(dateStr).toISOString()
       const apptId = crypto.randomUUID()
 
       const { data: s } = await sbAdmin

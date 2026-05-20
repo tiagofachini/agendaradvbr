@@ -108,7 +108,8 @@ function AppointmentModal({ initial, onClose, onSaved, onCancelled }) {
     e.preventDefault(); setLoading(true); setError('')
     try {
       if (isNew) {
-        const { data } = await api.post('/appointments', form)
+        const { date, time, ...formRest } = form
+        const { data } = await api.post('/appointments', { ...formRest, date: `${date}T${time}:00-03:00` })
         onSaved(data)
       } else {
         const { data } = await api.put(`/appointments/${initial.id}`, {
