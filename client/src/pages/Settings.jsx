@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import api from '../lib/api'
 import { supabase } from '../lib/supabase'
@@ -157,7 +158,8 @@ function ColorPicker({ label, value, onChange }) {
 }
 
 function ProfileSection({ data, onSaved }) {
-  const { lawyer } = useAuth()
+  const { lawyer, logout } = useAuth()
+  const navigate = useNavigate()
   const a = data.account || {}
   const o = data.office || {}
   const [form, setForm] = useState({
@@ -173,6 +175,8 @@ function ProfileSection({ data, onSaved }) {
   const [error, setError] = useState('')
   const [cepLoading, setCepLoading] = useState(false)
   const [specSearch, setSpecSearch] = useState('')
+  const [deleteLoading, setDeleteLoading] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
 
   useEffect(() => {
     const a = data.account || {}
@@ -224,7 +228,24 @@ function ProfileSection({ data, onSaved }) {
     setLoading(false)
   }
 
+  const handleDeleteAccount = async () => {
+    if (!window.confirm(
+      'Excluir permanentemente sua conta?\n\nTodos os seus dados, clientes, compromissos e configurações serão apagados. Esta ação não pode ser desfeita.'
+    )) return
+    setDeleteLoading(true)
+    setDeleteError('')
+    try {
+      await api.delete('/settings/account')
+      logout()
+      navigate('/')
+    } catch (err) {
+      setDeleteError(err.response?.data?.error || err.message || 'Erro ao excluir conta')
+      setDeleteLoading(false)
+    }
+  }
+
   return (
+    <>
     <Section title="Perfil do escritório" desc="Sua vitrine pública e dados internos." onSubmit={save} loading={loading} saved={saved} error={error}>
 
       {/* Identidade visual */}
@@ -333,6 +354,27 @@ function ProfileSection({ data, onSaved }) {
       </div>
 
     </Section>
+
+    <div className="bg-white rounded-2xl shadow-sm p-6 mb-5 border border-gray-100">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-medium text-gray-400">Excluir conta</p>
+          <p className="text-xs text-gray-300 mt-0.5">Remove permanentemente todos os seus dados da plataforma.</p>
+        </div>
+        <button
+          type="button"
+          onClick={handleDeleteAccount}
+          disabled={deleteLoading}
+          className="text-xs text-gray-300 hover:text-red-400 transition-colors disabled:opacity-40"
+        >
+          {deleteLoading ? 'Excluindo...' : 'Excluir minha conta'}
+        </button>
+      </div>
+      {deleteError && (
+        <p className="mt-3 text-xs text-red-500">{deleteError}</p>
+      )}
+    </div>
+    </>
   )
 }
 

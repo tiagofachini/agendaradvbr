@@ -134,6 +134,41 @@ Deno.serve(async (req) => {
       }
     }
 
+    if (req.method === 'DELETE' && section === 'account') {
+      const sbAdmin = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      )
+      const { data: { user } } = await sb.auth.getUser()
+      if (!user) return Response.json({ error: 'Não autenticado' }, { status: 401, headers: cors })
+
+      const { data: lawyer } = await sbAdmin
+        .from('Lawyer')
+        .select('name, whatsapp, createdAt')
+        .eq('auth_id', user.id)
+        .maybeSingle()
+
+      const meta = (user.user_metadata ?? {}) as Record<string, unknown>
+      const l = lawyer as Record<string, unknown> | null
+
+      await sbAdmin.from('AdminDeletedUser').insert({
+        id: crypto.randomUUID(),
+        auth_id: user.id,
+        email: user.email,
+        name: l?.name || meta.name || user.email?.split('@')[0],
+        whatsapp: l?.whatsapp || meta.whatsapp || null,
+        createdAt: l?.createdAt || user.created_at,
+        lastSignInAt: user.last_sign_in_at || null,
+        deletedAt: new Date().toISOString(),
+        deletedBy: user.email,
+      })
+
+      const { error: delErr } = await sbAdmin.auth.admin.deleteUser(user.id)
+      if (delErr) throw delErr
+
+      return new Response(null, { status: 204, headers: cors })
+    }
+
     return new Response('Not Found', { status: 404, headers: cors })
   } catch (err) {
     return Response.json({ error: err.message }, { status: 500, headers: cors })
