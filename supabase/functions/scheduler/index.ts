@@ -78,6 +78,37 @@ async function sendEmail(key: string, to: string, subject: string, html: string)
   })
 }
 
+function toE164(phone: string): string {
+  const digits = phone.replace(/\D/g, '')
+  if (digits.startsWith('55') && digits.length >= 12) return `+${digits}`
+  if (digits.length === 11 || digits.length === 10) return `+55${digits}`
+  return `+${digits}`
+}
+
+async function sendWhatsApp(to: string, body: string): Promise<void> {
+  const accountSid = Deno.env.get('TWILIO_ACCOUNT_SID')
+  const authToken  = Deno.env.get('TWILIO_AUTH_TOKEN')
+  const rawFrom    = Deno.env.get('TWILIO_WHATSAPP_FROM')
+  if (!accountSid || !authToken || !rawFrom) return
+  const from = rawFrom.startsWith('whatsapp:') ? rawFrom : `whatsapp:${rawFrom}`
+  const toWa = `whatsapp:${toE164(to)}`
+  const res = await fetch(
+    `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${btoa(`${accountSid}:${authToken}`)}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({ From: from, To: toWa, Body: body }),
+    }
+  )
+  if (!res.ok) {
+    const d = await res.json().catch(() => ({}))
+    throw new Error(d.message || `Twilio HTTP ${res.status}`)
+  }
+}
+
 async function getGoogleAccessToken(refreshToken: string): Promise<string> {
   const res = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
@@ -341,6 +372,12 @@ Deno.serve(async (req) => {
               RESEND_KEY, lawyer.email,
               `Novo agendamento — ${clientName}`,
               lawyerEmailHtml({ clientName, clientEmail, clientWhatsapp, dateStr, timeStr, specialty, description, meetingLink })
+            )
+          }
+          if (s.newBookingByWhatsapp && lawyer.whatsapp) {
+            await sendWhatsApp(
+              lawyer.whatsapp,
+              `📅 Novo agendamento!\n\nCliente: ${clientName}\nData: ${dateStr}\nHorário: ${timeStr}\nÁrea: ${specialty}${clientWhatsapp ? `\nWhatsApp: ${clientWhatsapp}` : ''}`
             )
           }
         } catch (_) {}

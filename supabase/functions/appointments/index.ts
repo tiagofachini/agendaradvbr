@@ -6,6 +6,69 @@ const cors = {
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
 }
 
+const RESEND_URL = 'https://api.resend.com/emails'
+const FROM_EMAIL = 'AgendarAdv <notificacoes@agendar.adv.br>'
+
+async function sendEmail(key: string, to: string, subject: string, html: string) {
+  await fetch(RESEND_URL, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from: FROM_EMAIL, to, subject, html }),
+  })
+}
+
+function cancellationEmailHtml(p: {
+  clientName: string; dateStr: string; timeStr: string; specialty: string
+}) {
+  return `<!DOCTYPE html><html><body style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#111827">
+  <div style="background:#1a1a2e;padding:24px;border-radius:12px;text-align:center;margin-bottom:24px">
+    <h1 style="color:white;margin:0;font-size:20px">AgendarAdv</h1>
+    <p style="color:#a0aec0;margin:8px 0 0">Consulta cancelada</p>
+  </div>
+  <p>Um agendamento foi cancelado.</p>
+  <div style="background:#f9fafb;border-radius:12px;padding:20px;margin:20px 0;border:1px solid #e5e7eb">
+    <table style="width:100%;border-collapse:collapse">
+      <tr><td style="color:#6b7280;padding:6px 0;width:40%">Cliente</td><td style="font-weight:600">${p.clientName}</td></tr>
+      <tr><td style="color:#6b7280;padding:6px 0">Data</td><td style="font-weight:600">${p.dateStr}</td></tr>
+      <tr><td style="color:#6b7280;padding:6px 0">Horário</td><td style="font-weight:600">${p.timeStr}</td></tr>
+      <tr><td style="color:#6b7280;padding:6px 0">Área</td><td style="font-weight:600">${p.specialty}</td></tr>
+    </table>
+  </div>
+  <p style="color:#9ca3af;font-size:12px;margin-top:32px;border-top:1px solid #e5e7eb;padding-top:16px">Enviado automaticamente pelo AgendarAdv.</p>
+</body></html>`
+}
+
+function toE164(phone: string): string {
+  const digits = phone.replace(/\D/g, '')
+  if (digits.startsWith('55') && digits.length >= 12) return `+${digits}`
+  if (digits.length === 11 || digits.length === 10) return `+55${digits}`
+  return `+${digits}`
+}
+
+async function sendWhatsApp(to: string, body: string): Promise<void> {
+  const accountSid = Deno.env.get('TWILIO_ACCOUNT_SID')
+  const authToken  = Deno.env.get('TWILIO_AUTH_TOKEN')
+  const rawFrom    = Deno.env.get('TWILIO_WHATSAPP_FROM')
+  if (!accountSid || !authToken || !rawFrom) return
+  const from = rawFrom.startsWith('whatsapp:') ? rawFrom : `whatsapp:${rawFrom}`
+  const toWa = `whatsapp:${toE164(to)}`
+  const res = await fetch(
+    `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${btoa(`${accountSid}:${authToken}`)}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({ From: from, To: toWa, Body: body }),
+    }
+  )
+  if (!res.ok) {
+    const d = await res.json().catch(() => ({}))
+    throw new Error(d.message || `Twilio HTTP ${res.status}`)
+  }
+}
+
 async function getGoogleAccessToken(refreshToken: string): Promise<string> {
   const res = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
@@ -165,8 +228,51 @@ Deno.serve(async (req) => {
     if (req.method === 'DELETE' && id) {
       const { data: lawyerId } = await sb.rpc('get_lawyer_id')
       if (!lawyerId) return Response.json({ error: 'Perfil não encontrado' }, { status: 404, headers: cors })
+
+      const { data: appt } = await sbAdmin
+        .from('Appointment')
+        .select('clientName, date, specialty')
+        .eq('id', id)
+        .eq('lawyerId', lawyerId)
+        .maybeSingle()
+
       const { error } = await sbAdmin.from('Appointment').delete().eq('id', id).eq('lawyerId', lawyerId)
       if (error) throw error
+
+      if (appt) {
+        const [sRes, lawyerRes] = await Promise.all([
+          sbAdmin.from('LawyerSettings').select('cancellationByEmail, cancellationByWhatsapp').eq('lawyerId', lawyerId).maybeSingle(),
+          sbAdmin.from('Lawyer').select('email, whatsapp').eq('id', lawyerId).maybeSingle(),
+        ])
+        const s = sRes.data
+        const lawyer = lawyerRes.data
+        if (s && lawyer) {
+          const apptDate = new Date(appt.date)
+          const dateStr = apptDate.toLocaleDateString('pt-BR', {
+            timeZone: 'America/Sao_Paulo', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+          })
+          const timeStr = apptDate.toLocaleTimeString('pt-BR', {
+            timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit',
+          })
+          try {
+            const RESEND_KEY = Deno.env.get('RESEND_API_KEY_AGENDAR')
+            if (s.cancellationByEmail && lawyer.email && RESEND_KEY) {
+              await sendEmail(
+                RESEND_KEY, lawyer.email,
+                `Consulta cancelada — ${appt.clientName}`,
+                cancellationEmailHtml({ clientName: appt.clientName, dateStr, timeStr, specialty: appt.specialty })
+              )
+            }
+            if (s.cancellationByWhatsapp && lawyer.whatsapp) {
+              await sendWhatsApp(
+                lawyer.whatsapp,
+                `⚠ Consulta cancelada\n\nCliente: ${appt.clientName}\nData: ${dateStr}\nHorário: ${timeStr}\nÁrea: ${appt.specialty}`
+              )
+            }
+          } catch (_) {}
+        }
+      }
+
       return new Response(null, { status: 204, headers: cors })
     }
 
