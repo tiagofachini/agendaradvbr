@@ -31,17 +31,30 @@ jobs:
             exit 1
           fi
           P=nfgexlsfmyfypueslzxo
-          supabase functions deploy admin            --project-ref $P
-          supabase functions deploy appointments     --project-ref $P
-          supabase functions deploy clients          --project-ref $P
-          supabase functions deploy dashboard        --project-ref $P
-          supabase functions deploy finance          --project-ref $P
-          supabase functions deploy google-calendar  --project-ref $P
-          supabase functions deploy scheduler        --project-ref $P
-          supabase functions deploy settings         --project-ref $P
-          supabase functions deploy stripe-connect   --project-ref $P
-          supabase functions deploy stripe-webhook   --project-ref $P --no-verify-jwt
-          supabase functions deploy whatsapp         --project-ref $P
+
+          deploy_fn() {
+            local fn=$1
+            local extra=${2:-}
+            for attempt in 1 2 3; do
+              supabase functions deploy "$fn" --project-ref $P $extra && return 0
+              echo "Attempt $attempt failed for $fn, retrying in $((attempt * 10))s..."
+              sleep $((attempt * 10))
+            done
+            echo "ERROR: failed to deploy $fn after 3 attempts"
+            return 1
+          }
+
+          deploy_fn admin
+          deploy_fn appointments
+          deploy_fn clients
+          deploy_fn dashboard
+          deploy_fn finance
+          deploy_fn google-calendar
+          deploy_fn scheduler
+          deploy_fn settings
+          deploy_fn stripe-connect
+          deploy_fn stripe-webhook "--no-verify-jwt"
+          deploy_fn whatsapp
 
   deploy:
     name: Build e Deploy via FTP
