@@ -130,7 +130,10 @@ async function handleCheckout(req: Request): Promise<Response> {
     return Response.json({ error: 'Pagamentos não configurados para este advogado' }, { status: 400, headers: cors })
   }
 
-  const hourlyRate = parseFloat(s.hourlyRate ?? '0')
+  type SpecialtyRate = { specialty: string; rate: number }
+  const specialtyRates: SpecialtyRate[] = Array.isArray(s.specialtyRates) ? s.specialtyRates : []
+  const matched = specialtyRates.find(r => r.specialty === specialty)
+  const hourlyRate = matched ? parseFloat(String(matched.rate)) : parseFloat(s.hourlyRate ?? '0')
   const amountBRL = hourlyRate > 0 ? (hourlyRate * (s.slotDuration ?? 60)) / 60 : 0
   if (amountBRL <= 0) {
     return Response.json({ error: 'Consulta sem valor configurado' }, { status: 400, headers: cors })
@@ -258,7 +261,7 @@ async function handleCheckout(req: Request): Promise<Response> {
   const paymentIntent = await st.paymentIntents.create({
     amount: amountCents,
     currency: 'brl',
-    automatic_payment_methods: { enabled: true },
+    payment_method_types: ['card'],
     application_fee_amount: platformFeeCents,
     transfer_data: { destination: lawyer.stripeAccountId },
     metadata: { appointmentId: apptId, lawyerId: lawyer.id, slug },

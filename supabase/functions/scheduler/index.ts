@@ -225,6 +225,7 @@ Deno.serve(async (req) => {
           workEndTime: s.workEndTime ?? '18:00',
           highlightMessage: s.highlightMessage ?? null,
           hourlyRate: s.hourlyRate ?? null,
+          specialtyRates: s.specialtyRates ?? [],
           hasStripe,
           logoUrl: s.logoUrl ?? null,
           street: s.street ?? '',

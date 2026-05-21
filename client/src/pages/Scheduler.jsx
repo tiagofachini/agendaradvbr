@@ -122,19 +122,22 @@ function StripePaymentForm({ onSuccess, onError, consultaValor, brand1 }) {
     e.preventDefault()
     if (!stripe || !elements) return
     setPaying(true); setErr('')
-
-    const { error } = await stripe.confirmPayment({
-      elements,
-      confirmParams: { return_url: window.location.href },
-      redirect: 'if_required',
-    })
-
-    if (error) {
-      setErr(error.message || 'Erro ao processar pagamento.')
-      onError?.(error.message)
+    try {
+      const { error } = await stripe.confirmPayment({
+        elements,
+        confirmParams: { return_url: window.location.href },
+        redirect: 'if_required',
+      })
+      if (error) {
+        setErr(error.message || 'Erro ao processar pagamento.')
+        onError?.(error.message)
+      } else {
+        onSuccess()
+      }
+    } catch (e) {
+      setErr(e?.message || 'Erro ao inicializar pagamento. Tente recarregar a página.')
+    } finally {
       setPaying(false)
-    } else {
-      onSuccess()
     }
   }
 
@@ -345,11 +348,15 @@ export default function Scheduler() {
   const brand1 = /^#[0-9a-fA-F]{6}$/.test(info.brandColor1) ? info.brandColor1 : '#1a1a2e'
   const brand2 = /^#[0-9a-fA-F]{6}$/.test(info.brandColor2) ? info.brandColor2 : '#f5c842'
 
-  const consultaValor = info.hourlyRate
-    ? `R$ ${((parseFloat(info.hourlyRate) / 60) * (info.slotDuration ?? 60)).toFixed(2).replace('.', ',')}`
+  const baseHourlyRate = info.hourlyRate ? parseFloat(info.hourlyRate) : null
+  const specialtyRates = info.specialtyRates ?? []
+  const matchedRate = specialtyRates.find(r => r.specialty === form.specialty)
+  const effectiveRate = matchedRate ? parseFloat(String(matchedRate.rate)) : baseHourlyRate
+  const consultaValor = effectiveRate
+    ? `R$ ${((effectiveRate / 60) * (info.slotDuration ?? 60)).toFixed(2).replace('.', ',')}`
     : null
 
-  const showPaymentStep = info.hasStripe && !!consultaValor
+  const showPaymentStep = info.hasStripe && !!baseHourlyRate
 
   const addressParts = [
     info.street && info.number ? `${info.street}, ${info.number}` : info.street,
